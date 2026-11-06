@@ -18,7 +18,9 @@ Migrations are run by hand in the Supabase SQL editor, so this list is the sourc
 
 | Migration | Applied to the live DB | Notes |
 | --- | --- | --- |
-| `supabase/schema.sql` (initial) | not yet | `barbut_rooms`, `barbut_players`, `barbut_throws`, `barbut_bets` |
+| `supabase/schema.sql` (initial) | yes (2026-11-06, verified) | `barbut_rooms`, `barbut_players`, `barbut_throws`, `barbut_bets` |
+
+Production domain: https://barbut.hailatat.icu
 
 Rules for schema changes:
 - New migration = new numbered file in `supabase/migrations/`, additive when possible, and the same change folded
