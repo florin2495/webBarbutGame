@@ -22,6 +22,8 @@ Migrations are run by hand in the Supabase SQL editor, so this list is the sourc
 
 Production domain: https://barbut.hailatat.icu
 
+Feedback (`POST /api/feedback`) writes to `hub_feedback` (owned by `florin2495/hailataticu-hub`, slug `barbut`); this game must not be deployed before that table exists.
+
 Rules for schema changes:
 - New migration = new numbered file in `supabase/migrations/`, additive when possible, and the same change folded
   into `supabase/schema.sql`.

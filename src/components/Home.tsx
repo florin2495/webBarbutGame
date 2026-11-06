@@ -7,6 +7,7 @@ import { PREF_NICKNAME, useStringPref, writePref } from "@/lib/client/prefs";
 import { MAX_SPECTATORS, NICKNAME_MAX, STAKE_DEFAULT, STAKE_OPTIONS } from "@/lib/game";
 import type { RoomListItem } from "@/lib/types";
 import { Die } from "./Dice";
+import { FeedbackButton } from "./FeedbackButton";
 import { RoomList } from "./RoomList";
 import { Button, Card, ErrorText, Field, Toggle } from "./ui";
 
@@ -66,9 +67,12 @@ export function Home() {
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-8">
-      <a href="https://hailatat.icu" className="-mb-4 self-start text-xs font-semibold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300">
-        ← Back to haiLaTăt.icu hub
-      </a>
+      <div className="flex items-center justify-between gap-3">
+        <a href="https://hailatat.icu" className="text-xs font-semibold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300">
+          ← Back to haiLaTăt.icu hub
+        </a>
+        <FeedbackButton />
+      </div>
       <header className="text-center">
         <div className="mb-3 flex justify-center gap-3" aria-hidden>
           <Die value={6} />
