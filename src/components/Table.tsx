@@ -391,8 +391,8 @@ function PeopleList({ state, token, refresh, receivedAt }: Props) {
 
   async function kick(p: PublicPlayer) {
     const midRound =
-      room.status === "playing" && p.seat !== null ? " Are 10 secunde să refuze, altfel mâna în curs se anulează." : "";
-    if (!window.confirm(`Îl scoți pe ${p.nickname} din cameră?${midRound}`)) return;
+      room.status === "playing" && p.seat !== null ? " Are 10 secunde să refuze; dacă nu, mâna în curs se anulează." : "";
+    if (!window.confirm(`Scoți jucătorul ${p.nickname} din cameră?${midRound}`)) return;
     await run(p.id, `/api/rooms/${room.code}/kick`, { playerId: p.id });
   }
 

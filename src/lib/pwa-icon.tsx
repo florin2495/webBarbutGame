@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-// Opaque icon: two dice on a green felt background. Shapes only, no fonts.
+// Opaque icon: two dice on a black background. Shapes only, no fonts.
 const PIPS: Record<number, [number, number][]> = {
   5: [[0, 0], [2, 0], [1, 1], [0, 2], [2, 2]],
   6: [[0, 0], [2, 0], [0, 1], [2, 1], [0, 2], [2, 2]],
@@ -49,7 +49,7 @@ export function renderPwaIcon(px: number, safe: number): ImageResponse {
   const die = area * 0.5;
   return new ImageResponse(
     (
-      <div style={{ width: px, height: px, background: "#0f5132", display: "flex", position: "relative" }}>
+      <div style={{ width: px, height: px, background: "#18181b", display: "flex", position: "relative" }}>
         <Die size={die} value={6} rotate={-12} x={off + area * 0.04} y={off + area * 0.1} />
         <Die size={die} value={5} rotate={10} x={off + area * 0.46} y={off + area * 0.4} />
       </div>

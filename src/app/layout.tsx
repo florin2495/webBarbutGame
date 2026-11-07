@@ -16,6 +16,7 @@ export const metadata: Metadata = {
   title: "Barbut",
   applicationName: "Barbut",
   appleWebApp: { capable: true, title: "Barbut", statusBarStyle: "default" },
+  other: { "apple-mobile-web-app-capable": "yes" },
   description: "Barbut cu zaruri între prieteni, cu chibiți, Șan și Brăila.",
 };
 
