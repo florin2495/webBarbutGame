@@ -1,6 +1,8 @@
 import { renderPwaIcon } from "@/lib/pwa-icon";
 
 const VARIANTS: Record<string, { px: number; safe: number }> = {
+  // apple-touch-icon (linked from layout metadata: Turbopack does not basePath-prefix apple-icon.tsx).
+  apple: { px: 180, safe: 0.9 },
   "192": { px: 192, safe: 0.9 },
   "512": { px: 512, safe: 0.9 },
   "512-maskable": { px: 512, safe: 0.72 },

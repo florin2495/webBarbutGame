@@ -15,6 +15,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Barbut",
   applicationName: "Barbut",
+  // Not auto-prefixed with basePath, hence the explicit "/barbut".
+  icons: {
+    icon: { url: "/barbut/favicon.ico", sizes: "48x48", type: "image/x-icon" },
+    apple: { url: "/barbut/pwa-icon/apple", sizes: "180x180", type: "image/png" },
+  },
   appleWebApp: { capable: true, title: "Barbut", statusBarStyle: "default" },
   other: { "apple-mobile-web-app-capable": "yes" },
   description: "Barbut cu zaruri între prieteni, cu chibiți, Șan și Brăila.",

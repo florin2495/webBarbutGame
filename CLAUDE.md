@@ -28,7 +28,7 @@ re-joining with a nickname already in the room reclaims that member (new token, 
 bets kept, a spectator stays a spectator) from the same device (`device_hash`) or once it has been unseen for 45 s,
 also mid-round. `/state` exposes only a derived `connected` flag; never select `token_hash` / `device_hash` into it.
 
-Production domain: https://barbut.hailatat.icu
+Production domain: https://games.hailatat.icu/barbut (basePath `/barbut`, proxied by the hub; Vercel project web-barbut-game.vercel.app)
 
 Feedback (`POST /api/feedback`) writes to `hub_feedback` (owned by `florin2495/hailataticu-hub`, slug `barbut`); this game must not be deployed before that table exists.
 

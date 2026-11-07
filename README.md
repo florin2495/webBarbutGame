@@ -2,7 +2,7 @@
 
 Barbut cu zaruri, jucat în doi, cu până la 5 chibiți (spectatori) care pot paria **Șan** și **Brăila**.
 Același stil și arhitectură ca Bingo: Next.js 16 (App Router), Supabase (Postgres + Realtime Broadcast), deploy pe Vercel.
-Face parte din hub-ul [hailatat.icu](https://hailatat.icu).
+Face parte din hub-ul [games.hailatat.icu](https://games.hailatat.icu).
 
 ## Reguli („barbut curat”)
 
