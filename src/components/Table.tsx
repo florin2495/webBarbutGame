@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/client/api";
+import { useKickSeconds } from "@/lib/client/countdown";
 import { PREF_ANIMATION, PREF_SOUND, useBoolPref } from "@/lib/client/prefs";
 import { playRattle, unlockAudio } from "@/lib/client/sound";
 import { MAX_SPECTATORS, STAKE_OPTIONS, throwLabel } from "@/lib/game";
@@ -16,6 +17,8 @@ interface Props {
   state: RoomState;
   token: string;
   refresh: () => Promise<void>;
+  /** When the state was fetched (ms epoch), for local countdowns. */
+  receivedAt: number;
 }
 
 /** Runs an API action with a busy flag and a user-facing error. */
@@ -37,7 +40,7 @@ function useAction(token: string, refresh: () => Promise<void>) {
   return { busy, error, run };
 }
 
-export function Table({ state, token, refresh }: Props) {
+export function Table({ state, token, refresh, receivedAt }: Props) {
   const { room, me, players, throws } = state;
   const { busy, error, run } = useAction(token, refresh);
   const nick = new Map(players.map((p) => [p.id, p.nickname]));
@@ -85,7 +88,7 @@ export function Table({ state, token, refresh }: Props) {
       {isSpectator && room.status === "playing" && <BetPanel state={state} busy={busy} run={run} path={path} />}
       {state.bets.length > 0 && <BetList bets={state.bets} nick={nick} me={me} />}
       {throws.length > 0 && <ThrowHistory throws={throws} nick={nick} rolling={rolling} />}
-      <PeopleList state={state} token={token} refresh={refresh} />
+      <PeopleList state={state} token={token} refresh={refresh} receivedAt={receivedAt} />
       {room.hostPlayerId === me.id && room.status !== "playing" && (
         <StakePicker state={state} busy={busy} run={run} path={path} />
       )}
@@ -370,14 +373,25 @@ function ThrowHistory({ throws, nick, rolling }: { throws: ThrowItem[]; nick: Ma
   );
 }
 
-function PeopleList({ state, token, refresh }: Props) {
+function KickBadge({ player, receivedAt }: { player: PublicPlayer; receivedAt: number }) {
+  const seconds = useKickSeconds(player.kickRemainingMs, receivedAt);
+  if (seconds === null) return null;
+  return (
+    <span className="rounded bg-rose-100 px-1.5 text-[10px] font-semibold text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+      iese în {seconds} s
+    </span>
+  );
+}
+
+function PeopleList({ state, token, refresh, receivedAt }: Props) {
   const { players, me, room } = state;
   const canKick = room.hostPlayerId === me.id;
   const { busy, error, run } = useAction(token, refresh);
   const spectators = players.filter((p) => p.seat === null);
 
   async function kick(p: PublicPlayer) {
-    const midRound = room.status === "playing" && p.seat !== null ? " Mâna în curs se anulează." : "";
+    const midRound =
+      room.status === "playing" && p.seat !== null ? " Are 10 secunde să refuze, altfel mâna în curs se anulează." : "";
     if (!window.confirm(`Îl scoți pe ${p.nickname} din cameră?${midRound}`)) return;
     await run(p.id, `/api/rooms/${room.code}/kick`, { playerId: p.id });
   }
@@ -403,6 +417,7 @@ function PeopleList({ state, token, refresh }: Props) {
                 {p.seat ? "la masă" : "chibiț"}
               </span>
               {p.isHost && <span className="rounded bg-zinc-200 px-1.5 text-[10px] font-semibold uppercase dark:bg-zinc-800">host</span>}
+              <KickBadge player={p} receivedAt={receivedAt} />
             </span>
             <span className="flex shrink-0 items-center gap-2">
               <Balance value={p.balance} />

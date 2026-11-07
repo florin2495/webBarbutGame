@@ -42,8 +42,11 @@ create table if not exists public.barbut_players (
   token_hash text not null unique,
   is_host    boolean not null default false,
   balance    integer not null default 0,
-  joined_at  timestamptz not null default now()
+  joined_at  timestamptz not null default now(),
+  kick_requested_at timestamptz                              -- pending host kick (10 s to press "Ignoră"), null = none
 );
+-- Idempotent for databases created before the pending-kick feature (supabase/migrations/001_pending_kick.sql).
+alter table public.barbut_players add column if not exists kick_requested_at timestamptz;
 create unique index if not exists barbut_players_room_nickname_uq on public.barbut_players (room_id, lower(nickname));
 create index if not exists barbut_players_room_idx on public.barbut_players (room_id);
 

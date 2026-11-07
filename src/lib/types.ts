@@ -9,6 +9,8 @@ export interface PublicPlayer {
   balance: number;
   /** "A" / "B" when seated, null for a spectator. */
   seat: "A" | "B" | null;
+  /** Ms left of a pending host kick (10 s to press "Ignoră"), null when none is pending. */
+  kickRemainingMs: number | null;
 }
 
 export interface ThrowItem {

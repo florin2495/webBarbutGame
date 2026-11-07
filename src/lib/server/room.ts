@@ -1,9 +1,11 @@
 import "server-only";
 import { isRoomExpired, minutesLabel, PLAYING_IDLE_MINUTES, ROOM_IDLE_MINUTES } from "@/lib/game";
 import type { BetItem, PublicPlayer, RoomState, ThrowItem } from "@/lib/types";
+import { kickRemainingMs } from "@/lib/kick";
 import { hashToken } from "./crypto";
 import { db, PLAYER_COLUMNS, ROOM_COLUMNS, type PlayerRow, type RoomRow } from "./db";
 import { fail } from "./http";
+import { enforceExpiredKicks } from "./kick";
 
 export const T = {
   rooms: "barbut_rooms",
@@ -56,7 +58,8 @@ export async function touchRoom(roomId: string): Promise<void> {
 export async function requireMember(req: Request, code: string): Promise<{ room: RoomRow; player: PlayerRow }> {
   const token = req.headers.get("x-player-token");
   if (!token || token.length > 200) fail(401, "Nu ești în această cameră.");
-  const room = await getRoomByCode(code);
+  // Lazy enforcement of host kicks whose 10 s are over (may remove the caller -> 401 below).
+  const room = await enforceExpiredKicks(await getRoomByCode(code), () => getRoomByCode(code));
   const { data, error } = await db()
     .from(T.players)
     .select(PLAYER_COLUMNS)
@@ -153,6 +156,7 @@ export async function buildState(room: RoomRow, me: PlayerRow): Promise<RoomStat
     isHost: p.is_host,
     balance: p.balance,
     seat: room.seat_a === p.id ? "A" : room.seat_b === p.id ? "B" : null,
+    kickRemainingMs: kickRemainingMs(p.kick_requested_at),
   });
   const rank = (p: PublicPlayer) => (p.seat === "A" ? 0 : p.seat === "B" ? 1 : 2);
   const ordered = players.map(toPublic).sort((a, b) => rank(a) - rank(b)); // stable: spectators keep join order

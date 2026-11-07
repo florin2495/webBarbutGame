@@ -44,6 +44,7 @@ export interface PlayerRow {
   is_host: boolean;
   balance: number;
   joined_at: string;
+  kick_requested_at: string | null;
 }
 
-export const PLAYER_COLUMNS = "id, room_id, nickname, is_host, balance, joined_at";
+export const PLAYER_COLUMNS = "id, room_id, nickname, is_host, balance, joined_at, kick_requested_at";

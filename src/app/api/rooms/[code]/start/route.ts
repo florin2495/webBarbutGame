@@ -2,6 +2,7 @@ import { firstThrower } from "@/lib/game";
 import { notifyRoom } from "@/lib/server/broadcast";
 import { db } from "@/lib/server/db";
 import { fail, handle } from "@/lib/server/http";
+import { clearPendingKicks } from "@/lib/server/kick";
 import { isSeated, requireMember, T } from "@/lib/server/room";
 
 // POST /api/rooms/[code]/start - one of the two seated players starts a new round ("mână").
@@ -33,6 +34,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/st
     if (error) throw error;
     if (!data?.length) fail(409, "Mâna a fost deja pornită.");
 
+    await clearPendingKicks(room.id);
     await notifyRoom(room.id, "round_started");
     return { ok: true };
   });

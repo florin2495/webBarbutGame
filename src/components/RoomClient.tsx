@@ -12,6 +12,7 @@ import {
   saveSession,
   subscribeSession,
 } from "@/lib/client/api";
+import { useKickSeconds } from "@/lib/client/countdown";
 import { PREF_NICKNAME, useStringPref, writePref } from "@/lib/client/prefs";
 import { realtimeClient } from "@/lib/client/realtime";
 import { MAX_SPECTATORS, minutesLabel, NICKNAME_MAX, ROOM_IDLE_MINUTES } from "@/lib/game";
@@ -46,6 +47,7 @@ function useRoomState(code: string, token: string) {
   const [state, setState] = useState<RoomState | null>(null);
   const [error, setError] = useState("");
   const [missing, setMissing] = useState(false);
+  const [receivedAt, setReceivedAt] = useState(0);
   const latest = useRef(0);
 
   const refresh = useCallback(async () => {
@@ -54,6 +56,7 @@ function useRoomState(code: string, token: string) {
       const s = await api<RoomState>(`/api/rooms/${code}/state`, { token });
       if (id !== latest.current) return; // a newer request already answered
       setState(s);
+      setReceivedAt(Date.now());
       setError("");
     } catch (err) {
       if (id !== latest.current) return;
@@ -98,11 +101,21 @@ function useRoomState(code: string, token: string) {
     };
   }, [roomId, refresh]);
 
-  return { state, error, missing, refresh };
+  return { state, receivedAt, error, missing, refresh };
 }
 
 function Room({ code, token }: { code: string; token: string }) {
-  const { state, error, missing, refresh } = useRoomState(code, token);
+  const { state, receivedAt, error, missing, refresh } = useRoomState(code, token);
+
+  // A pending kick has no server timer: when the soonest one runs out, re-fetch once so it is enforced promptly
+  // (at 0 s for the display, and again after the server's 2 s network tolerance, when the removal really happens).
+  const soonest = state ? Math.min(...state.players.map((p) => p.kickRemainingMs ?? Infinity)) : Infinity;
+  useEffect(() => {
+    if (!Number.isFinite(soonest)) return;
+    const timers = [soonest + 2300].map((ms) => window.setTimeout(() => void refresh(), ms));
+    if (soonest > 0) timers.push(window.setTimeout(() => void refresh(), soonest + 100));
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, [soonest, receivedAt, refresh]);
 
   if (missing) {
     return (
@@ -134,10 +147,68 @@ function Room({ code, token }: { code: string; token: string }) {
     <main className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 py-4">
       <RoomHeader state={state} />
       {error && <ErrorText>Conexiune instabilă: {error}</ErrorText>}
-      <Table state={state} token={token} refresh={refresh} />
+      <Table state={state} token={token} refresh={refresh} receivedAt={receivedAt} />
       <SettingsPanel />
       <LeaveButton state={state} token={token} />
+      {state.me.kickRemainingMs !== null && (
+        <KickModal code={code} token={token} remainingMs={state.me.kickRemainingMs} receivedAt={receivedAt} refresh={refresh} />
+      )}
     </main>
+  );
+}
+
+/** Blocking modal for a player the host kicked mid-round: "Ignoră" within 10 s to stay. */
+function KickModal({
+  code,
+  token,
+  remainingMs,
+  receivedAt,
+  refresh,
+}: {
+  code: string;
+  token: string;
+  remainingMs: number;
+  receivedAt: number;
+  refresh: () => Promise<void>;
+}) {
+  const seconds = useKickSeconds(remainingMs, receivedAt) ?? 0;
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function ignore() {
+    setBusy(true);
+    setError("");
+    try {
+      await api(`/api/rooms/${code}/kick/ignore`, { token, body: {} });
+    } catch (err) {
+      if (!(err instanceof ApiRequestError && err.status === 401)) {
+        setError(err instanceof Error ? err.message : "Eroare.");
+      }
+    }
+    await refresh(); // a 401 here sends us to the "you were removed" join form
+    setBusy(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="alertdialog" aria-modal="true" aria-labelledby="kick-title">
+      <div className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-5 text-center shadow-xl dark:border-zinc-800 dark:bg-zinc-950">
+        <h2 id="kick-title" className="text-lg font-black">
+          Ai fost scos din joc
+        </h2>
+        <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
+          Gazda te-a scos din cameră. Apasă „Ignoră” în {seconds} s ca să rămâi în joc.
+        </p>
+        <p className="my-3 font-mono text-4xl font-black tabular-nums text-rose-600 dark:text-rose-400" aria-hidden="true">
+          {seconds}
+        </p>
+        <Button className="w-full" onClick={() => void ignore()} disabled={busy}>
+          Ignoră
+        </Button>
+        <div className="mt-2">
+          <ErrorText>{error}</ErrorText>
+        </div>
+      </div>
+    </div>
   );
 }
 
