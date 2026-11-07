@@ -9,6 +9,7 @@
 - Ask the user before pushing (= deploying), unless they explicitly say to deploy.
 - **Before every push, bump the patch version** in `package.json` (and `npm install --package-lock-only`).
   It is shown in-game next to "Setări".
+- Functions run in `fra1` (Frankfurt, `vercel.json` `{ "regions": ["fra1"] }`), next to the Supabase DB. Never remove it: the Vercel default `iad1` (Washington) makes every DB query cross the Atlantic (1-2 s per request instead of ~0.3 s).
 
 ## Database (shared Supabase project `vgpcagpqbeiqplfidmwo`)
 One Supabase project hosts every hailatat.icu mini-game. **Every table of this game starts with `barbut_`**
