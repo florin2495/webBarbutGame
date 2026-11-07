@@ -14,6 +14,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Barbut",
+  applicationName: "Barbut",
+  appleWebApp: { capable: true, title: "Barbut", statusBarStyle: "default" },
   description: "Barbut cu zaruri între prieteni, cu chibiți, Șan și Brăila.",
 };
 
