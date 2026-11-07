@@ -11,6 +11,8 @@ export interface PublicPlayer {
   seat: "A" | "B" | null;
   /** Ms left of a pending host kick (10 s to press "Ignoră"), null when none is pending. */
   kickRemainingMs: number | null;
+  /** Seen in the last 45 s (see lib/reconnect.ts). False = phone in the background, closed tab, no network. */
+  connected: boolean;
 }
 
 export interface ThrowItem {

@@ -21,6 +21,12 @@ Migrations are run by hand in the Supabase SQL editor, so this list is the sourc
 | --- | --- | --- |
 | `supabase/schema.sql` (initial) | yes (2026-11-06, verified) | `barbut_rooms`, `barbut_players`, `barbut_throws`, `barbut_bets` |
 | `supabase/migrations/001_pending_kick.sql` | yes (2026-11-07, verified) | `barbut_players.kick_requested_at` (pending host kick, 10 s to press "Ignoră"); the code needs it, do not push before it ran |
+| `supabase/migrations/002_reconnect.sql` | yes (2026-11-07, verified: service role 200, anon 401) | `barbut_players.last_seen_at`, `device_hash` + index (rejoin the same seat). The code needs it, do not push before it ran |
+
+Rejoin the same seat (`src/lib/reconnect.ts`): every member request stamps `last_seen_at` (at most every 10 s);
+re-joining with a nickname already in the room reclaims that member (new token, same player id: seat, balance and
+bets kept, a spectator stays a spectator) from the same device (`device_hash`) or once it has been unseen for 45 s,
+also mid-round. `/state` exposes only a derived `connected` flag; never select `token_hash` / `device_hash` into it.
 
 Production domain: https://barbut.hailatat.icu
 
@@ -34,6 +40,6 @@ Rules for schema changes:
 - Never print or commit the keys in `.env.local`.
 
 ## Testing
-- `npm test` (Vitest, pure rules in `src/lib/game.ts`), `npx tsc --noEmit`, `npx eslint src`, `npx next build`.
+- `npm test` (Vitest, pure rules in `src/lib/game.ts`, `kick.ts`, `reconnect.ts`), `npx tsc --noEmit`, `npx eslint src`, `npx next build`.
 - End-to-end: drive the real API with 2 players + spectators (create, join, spectate, start, throw, bet braila/san,
   seat sit/stand, settings, leave mid-round, kick, 6th spectator refused) against `npm run dev`. Delete test rooms afterwards.

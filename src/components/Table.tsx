@@ -152,6 +152,7 @@ function SeatCard({ player, state }: { player: PublicPlayer | null; state: RoomS
         {player.nickname}
         {player.id === me.id && <span className="font-normal text-zinc-500"> (tu)</span>}
       </span>
+      <OfflineBadge player={player} />
       <Balance value={player.balance} />
       <span className="h-5 text-xs font-semibold text-indigo-600 dark:text-indigo-400">{hasDice ? "🎲 are zarurile" : ""}</span>
     </div>
@@ -373,6 +374,16 @@ function ThrowHistory({ throws, nick, rolling }: { throws: ThrowItem[]; nick: Ma
   );
 }
 
+/** Shown next to a member not seen for 45 s (phone in the background, closed tab, no network). */
+function OfflineBadge({ player }: { player: PublicPlayer }) {
+  if (player.connected !== false) return null;
+  return (
+    <span className="shrink-0 rounded bg-zinc-200 px-1.5 text-[10px] font-semibold uppercase text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+      deconectat
+    </span>
+  );
+}
+
 function KickBadge({ player, receivedAt }: { player: PublicPlayer; receivedAt: number }) {
   const seconds = useKickSeconds(player.kickRemainingMs, receivedAt);
   if (seconds === null) return null;
@@ -417,6 +428,7 @@ function PeopleList({ state, token, refresh, receivedAt }: Props) {
                 {p.seat ? "la masă" : "chibiț"}
               </span>
               {p.isHost && <span className="rounded bg-zinc-200 px-1.5 text-[10px] font-semibold uppercase dark:bg-zinc-800">host</span>}
+              <OfflineBadge player={p} />
               <KickBadge player={p} receivedAt={receivedAt} />
             </span>
             <span className="flex shrink-0 items-center gap-2">

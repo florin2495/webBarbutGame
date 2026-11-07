@@ -27,7 +27,7 @@ Face parte din hub-ul [hailatat.icu](https://hailatat.icu).
 - Dacă un jucător pleacă (sau e scos) în timpul mâinii, mâna se anulează (pariurile deschise devin „anulat”)
   și cel mai vechi chibiț îi ia locul.
 - Host-ul poate schimba miza între mâini și poate scoate pe oricine din cameră.
-- Camerele fără mână în curs se închid după 2 minute în care nimeni nu le are deschise; cele cu mână în curs după 30 de minute.
+- Camerele fără mână în curs se închid după 10 minute în care nimeni nu le are deschise; cele cu mână în curs după 30 de minute.
 
 ## Arhitectură, pe scurt
 

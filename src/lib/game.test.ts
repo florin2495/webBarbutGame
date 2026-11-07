@@ -73,9 +73,10 @@ describe("misc", () => {
     expect(isValidStake(2.5)).toBe(false);
   });
   it("expires idle rooms, playing ones later", () => {
-    const now = Date.parse("2026-01-01T00:10:00Z");
+    const now = Date.parse("2026-01-01T00:20:00Z");
     expect(isRoomExpired("waiting", "2026-01-01T00:05:00Z", now)).toBe(true);
+    expect(isRoomExpired("waiting", "2026-01-01T00:11:00Z", now)).toBe(false);
     expect(isRoomExpired("playing", "2026-01-01T00:05:00Z", now)).toBe(false);
-    expect(isRoomExpired("finished", "2026-01-01T00:09:30Z", now)).toBe(false);
+    expect(isRoomExpired("finished", "2026-01-01T00:15:00Z", now)).toBe(false);
   });
 });

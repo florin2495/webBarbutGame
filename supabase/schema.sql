@@ -43,12 +43,17 @@ create table if not exists public.barbut_players (
   is_host    boolean not null default false,
   balance    integer not null default 0,
   joined_at  timestamptz not null default now(),
-  kick_requested_at timestamptz                              -- pending host kick (10 s to press "Ignoră"), null = none
+  kick_requested_at timestamptz,                             -- pending host kick (10 s to press "Ignoră"), null = none
+  last_seen_at timestamptz not null default now(),           -- presence: disconnected after 45 s, see migrations/002
+  device_hash  text                                          -- sha256 of the browser's device id, see migrations/002
 );
--- Idempotent for databases created before the pending-kick feature (supabase/migrations/001_pending_kick.sql).
+-- Idempotent for databases created before these columns (supabase/migrations/001_pending_kick.sql, 002_reconnect.sql).
 alter table public.barbut_players add column if not exists kick_requested_at timestamptz;
+alter table public.barbut_players add column if not exists last_seen_at timestamptz not null default now();
+alter table public.barbut_players add column if not exists device_hash text;
 create unique index if not exists barbut_players_room_nickname_uq on public.barbut_players (room_id, lower(nickname));
 create index if not exists barbut_players_room_idx on public.barbut_players (room_id);
+create index if not exists barbut_players_room_seen_idx on public.barbut_players (room_id, last_seen_at);
 
 do $$ begin
   alter table public.barbut_rooms add constraint barbut_rooms_seat_a_fk

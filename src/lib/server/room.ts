@@ -2,6 +2,7 @@ import "server-only";
 import { isRoomExpired, minutesLabel, PLAYING_IDLE_MINUTES, ROOM_IDLE_MINUTES } from "@/lib/game";
 import type { BetItem, PublicPlayer, RoomState, ThrowItem } from "@/lib/types";
 import { kickRemainingMs } from "@/lib/kick";
+import { isConnected, LAST_SEEN_TOUCH_MS } from "@/lib/reconnect";
 import { hashToken } from "./crypto";
 import { db, PLAYER_COLUMNS, ROOM_COLUMNS, type PlayerRow, type RoomRow } from "./db";
 import { fail } from "./http";
@@ -68,7 +69,18 @@ export async function requireMember(req: Request, code: string): Promise<{ room:
     .maybeSingle();
   if (error) throw error;
   if (!data) fail(401, "Nu ești în această cameră.");
-  return { room, player: data as PlayerRow };
+  const player = data as PlayerRow;
+  await touchPlayer(player);
+  return { room, player };
+}
+
+/** Presence heartbeat: stamps last_seen_at at most every LAST_SEEN_TOUCH_MS. Best effort, never throws. */
+async function touchPlayer(player: PlayerRow): Promise<void> {
+  const now = Date.now();
+  if (now - Date.parse(player.last_seen_at) < LAST_SEEN_TOUCH_MS) return;
+  player.last_seen_at = new Date(now).toISOString();
+  const { error } = await db().from(T.players).update({ last_seen_at: player.last_seen_at }).eq("id", player.id);
+  if (error) console.error("presence touch failed", error);
 }
 
 export function requireHost(room: RoomRow, player: PlayerRow) {
@@ -150,13 +162,15 @@ export async function buildState(room: RoomRow, me: PlayerRow): Promise<RoomStat
     room.round > 0 ? listBets(room.id, room.round) : Promise.resolve([]),
   ]);
 
+  const now = Date.now();
   const toPublic = (p: PlayerRow): PublicPlayer => ({
     id: p.id,
     nickname: p.nickname,
     isHost: p.is_host,
     balance: p.balance,
     seat: room.seat_a === p.id ? "A" : room.seat_b === p.id ? "B" : null,
-    kickRemainingMs: kickRemainingMs(p.kick_requested_at),
+    kickRemainingMs: kickRemainingMs(p.kick_requested_at, now),
+    connected: isConnected(p.last_seen_at, now),
   });
   const rank = (p: PublicPlayer) => (p.seat === "A" ? 0 : p.seat === "B" ? 1 : 2);
   const ordered = players.map(toPublic).sort((a, b) => rank(a) - rank(b)); // stable: spectators keep join order
