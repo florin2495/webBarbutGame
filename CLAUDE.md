@@ -22,6 +22,7 @@ Migrations are run by hand in the Supabase SQL editor, so this list is the sourc
 | `supabase/schema.sql` (initial) | yes (2026-11-06, verified) | `barbut_rooms`, `barbut_players`, `barbut_throws`, `barbut_bets` |
 | `supabase/migrations/001_pending_kick.sql` | yes (2026-11-07, verified) | `barbut_players.kick_requested_at` (pending host kick, 10 s to press "Ignoră"); the code needs it, do not push before it ran |
 | `supabase/migrations/002_reconnect.sql` | yes (2026-11-07, verified: service role 200, anon 401) | `barbut_players.last_seen_at`, `device_hash` + index (rejoin the same seat). The code needs it, do not push before it ran |
+| `supabase/migrations/003_spectator_queue.sql` | **not applied yet** | `barbut_players.queued_at` ("Intră la runda următoare" queue, `/queue`). The code needs it, do not push before it ran |
 
 Rejoin the same seat (`src/lib/reconnect.ts`): every member request stamps `last_seen_at` (at most every 10 s);
 re-joining with a nickname already in the room reclaims that member (new token, same player id: seat, balance and
@@ -29,6 +30,9 @@ bets kept, a spectator stays a spectator) from the same device (`device_hash`) o
 also mid-round. `/state` exposes only a derived `connected` flag; never select `token_hash` / `device_hash` into it.
 
 Production domain: https://games.hailatat.icu/barbut (basePath `/barbut`, proxied by the hub; Vercel project web-barbut-game.vercel.app)
+
+Leaderboard: at the end of a round `src/lib/server/leaderboard.ts` reports to the hub's `hub_leaderboard` / `hub_leaderboard_rounds` (hub migration `002_hub_leaderboard.sql`, best effort). Do not push before the hub migration ran.
+Spectators: max 16, queue via `POST /queue`, host reorder via `POST /reorder` (decides who throws first).
 
 Feedback (`POST /api/feedback`) writes to `hub_feedback` (owned by `florin2495/hailataticu-hub`, slug `barbut`); this game must not be deployed before that table exists.
 
