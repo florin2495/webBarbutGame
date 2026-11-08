@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   betDelta,
+  fillSeatsFromQueue,
   firstThrower,
+  isPermutation,
   isRoomExpired,
   isValidStake,
+  playerKey,
   roundWinner,
   settleBraila,
   settleSan,
@@ -78,5 +81,29 @@ describe("misc", () => {
     expect(isRoomExpired("waiting", "2026-01-01T00:11:00Z", now)).toBe(false);
     expect(isRoomExpired("playing", "2026-01-01T00:05:00Z", now)).toBe(false);
     expect(isRoomExpired("finished", "2026-01-01T00:15:00Z", now)).toBe(false);
+  });
+});
+
+describe("fillSeatsFromQueue", () => {
+  it("seats the queue in order and leaves the rest as spectators", () => {
+    expect(fillSeatsFromQueue(null, null, ["x", "y", "z"])).toEqual({ seatA: "x", seatB: "y", seated: ["x", "y"] });
+    expect(fillSeatsFromQueue("a", null, ["x", "y"])).toEqual({ seatA: "a", seatB: "x", seated: ["x"] });
+  });
+  it("does nothing when full or nobody queued", () => {
+    expect(fillSeatsFromQueue("a", "b", ["x"]).seated).toEqual([]);
+    expect(fillSeatsFromQueue(null, "b", []).seatA).toBeNull();
+  });
+});
+
+describe("isPermutation / playerKey", () => {
+  it("accepts only full permutations", () => {
+    expect(isPermutation(["b", "a"], ["a", "b"])).toBe(true);
+    expect(isPermutation(["a"], ["a", "b"])).toBe(false);
+    expect(isPermutation(["a", "a"], ["a", "b"])).toBe(false);
+    expect(isPermutation(["a", "c"], ["a", "b"])).toBe(false);
+    expect(isPermutation("ab", ["a", "b"])).toBe(false);
+  });
+  it("lowercases and trims nicknames", () => {
+    expect(playerKey("  Ion ")).toBe("ion");
   });
 });

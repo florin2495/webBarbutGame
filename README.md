@@ -1,6 +1,6 @@
 # webBarbutGame
 
-Barbut cu zaruri, jucat în doi, cu până la 5 chibiți (spectatori) care pot paria **Șan** și **Brăila**.
+Barbut cu zaruri, jucat în doi, cu până la 16 chibiți (spectatori) care pot paria **Șan** și **Brăila**.
 Același stil și arhitectură ca Bingo: Next.js 16 (App Router), Supabase (Postgres + Realtime Broadcast), deploy pe Vercel.
 Face parte din hub-ul [games.hailatat.icu](https://games.hailatat.icu).
 
@@ -15,7 +15,7 @@ Face parte din hub-ul [games.hailatat.icu](https://games.hailatat.icu).
 
 ### Chibiți (spectatori)
 
-- Până la **5 chibiți** pe cameră. Pot intra oricând, și în mijlocul unei mâini.
+- Până la **16 chibiți** pe cameră. Pot intra oricând, și în mijlocul unei mâini.
 - **Brăila**: chibițul ține cu unul din cei doi jucători. Câștigă sau pierde miza odată cu el la finalul mâinii.
   Un pariu Brăila pe mână.
 - **Șan**: pariu „pe mâna” celui care are zarurile, doar pe următoarea lui aruncare. Câștigătoare = câștigă,

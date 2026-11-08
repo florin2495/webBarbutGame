@@ -131,6 +131,14 @@ export async function listBets(roomId: string, round: number): Promise<BetItem[]
   }));
 }
 
+/** Queued spectators (not seated), in queue order. */
+export function queuedSpectatorIds(room: RoomRow, members: PlayerRow[]): string[] {
+  return members
+    .filter((p) => p.queued_at && !isSeated(room, p.id))
+    .sort((a, b) => Date.parse(a.queued_at!) - Date.parse(b.queued_at!))
+    .map((p) => p.id);
+}
+
 /** Adds `delta` chips to a player. Callers are serialized by the room's throw_count claim. */
 export async function addBalance(playerId: string, delta: number): Promise<void> {
   if (delta === 0) return;
@@ -163,6 +171,10 @@ export async function buildState(room: RoomRow, me: PlayerRow): Promise<RoomStat
   ]);
 
   const now = Date.now();
+  const queue = players
+    .filter((p) => p.queued_at && room.seat_a !== p.id && room.seat_b !== p.id)
+    .sort((a, b) => Date.parse(a.queued_at!) - Date.parse(b.queued_at!))
+    .map((p) => p.id);
   const toPublic = (p: PlayerRow): PublicPlayer => ({
     id: p.id,
     nickname: p.nickname,
@@ -171,9 +183,11 @@ export async function buildState(room: RoomRow, me: PlayerRow): Promise<RoomStat
     seat: room.seat_a === p.id ? "A" : room.seat_b === p.id ? "B" : null,
     kickRemainingMs: kickRemainingMs(p.kick_requested_at, now),
     connected: isConnected(p.last_seen_at, now),
+    queuePosition: queue.includes(p.id) ? queue.indexOf(p.id) + 1 : null,
   });
-  const rank = (p: PublicPlayer) => (p.seat === "A" ? 0 : p.seat === "B" ? 1 : 2);
-  const ordered = players.map(toPublic).sort((a, b) => rank(a) - rank(b)); // stable: spectators keep join order
+  const rank = (p: PublicPlayer) =>
+    p.seat === "A" ? 0 : p.seat === "B" ? 1 : p.queuePosition !== null ? 1 + p.queuePosition : 100;
+  const ordered = players.map(toPublic).sort((a, b) => rank(a) - rank(b)); // stable: other spectators keep join order
 
   return {
     room: {

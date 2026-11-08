@@ -28,6 +28,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/se
         .select("id");
       if (error) throw error;
       if (!data?.length) fail(409, "Locul a fost ocupat între timp.");
+      await db().from(T.players).update({ queued_at: null }).eq("id", player.id);
     } else if (body.action === "stand") {
       if (!isSeated(room, player.id)) fail(409, "Nu ești la masă.");
       const members = await listPlayers(room.id);

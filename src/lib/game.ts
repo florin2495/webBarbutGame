@@ -2,7 +2,7 @@
 
 export const NICKNAME_MAX = 10;
 export const SEATS = 2;
-export const MAX_SPECTATORS = 5;
+export const MAX_SPECTATORS = 16;
 export const STAKE_MIN = 1;
 export const STAKE_MAX = 1000;
 export const STAKE_DEFAULT = 10;
@@ -93,4 +93,37 @@ export function betDelta(status: BetStatus, amount: number): number {
 /** Whoever won the last round keeps the dice; round 1 starts with seat A. */
 export function firstThrower(seatA: string, seatB: string, lastWinner: string | null): string {
   return lastWinner === seatB ? seatB : seatA;
+}
+
+/**
+ * Fills free seats from the spectator queue, in queue order (`queuedIds` is already sorted by queued_at).
+ * Returns the new seats and the ids that were seated. Spectators not queued never get a seat.
+ */
+export function fillSeatsFromQueue(
+  seatA: string | null,
+  seatB: string | null,
+  queuedIds: string[],
+): { seatA: string | null; seatB: string | null; seated: string[] } {
+  const queue = queuedIds.filter((id) => id !== seatA && id !== seatB);
+  const seated: string[] = [];
+  if (!seatA && queue.length) seated.push((seatA = queue.shift()!));
+  if (!seatB && queue.length) seated.push((seatB = queue.shift()!));
+  return { seatA, seatB, seated };
+}
+
+/** True when `order` is a permutation of `ids` (same members, each exactly once). */
+export function isPermutation(order: unknown, ids: string[]): order is string[] {
+  if (!Array.isArray(order) || order.length !== ids.length) return false;
+  const set = new Set(ids);
+  const seen = new Set<string>();
+  for (const id of order) {
+    if (typeof id !== "string" || !set.has(id) || seen.has(id)) return false;
+    seen.add(id);
+  }
+  return true;
+}
+
+/** Leaderboard identity: nickname lowercased and trimmed (no accounts, same nickname = same person). */
+export function playerKey(nickname: string): string {
+  return nickname.trim().toLowerCase();
 }

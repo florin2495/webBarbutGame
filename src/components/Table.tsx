@@ -82,6 +82,7 @@ export function Table({ state, token, refresh, receivedAt }: Props) {
         ) : (
           <BetweenRounds state={state} busy={busy} run={run} path={path} />
         )}
+        {isSpectator && room.status === "playing" && <QueueButton state={state} busy={busy} run={run} path={path} />}
         <ErrorText>{error}</ErrorText>
       </Card>
 
@@ -249,13 +250,33 @@ function BetweenRounds({ state, busy, run, path }: { state: RoomState; busy: str
       </div>
     );
   }
-  return full ? (
-    <p className="rounded-lg bg-zinc-100 py-3 text-center text-sm font-semibold dark:bg-zinc-900">
-      Ești chibiț. Jucătorii pornesc mâna următoare.
-    </p>
-  ) : (
-    <Button className="min-h-14 text-lg" disabled={busy !== null} onClick={() => void run("sit", path("seat"), { action: "sit" })}>
-      {busy === "sit" ? "Te așezi…" : "Ia locul la masă"}
+  return (
+    <div className="flex flex-col gap-2">
+      {full ? (
+        <p className="rounded-lg bg-zinc-100 py-3 text-center text-sm font-semibold dark:bg-zinc-900">
+          Ești chibiț. Jucătorii pornesc mâna următoare.
+        </p>
+      ) : (
+        <Button className="min-h-14 text-lg" disabled={busy !== null} onClick={() => void run("sit", path("seat"), { action: "sit" })}>
+          {busy === "sit" ? "Te așezi…" : "Ia locul la masă"}
+        </Button>
+      )}
+      <QueueButton state={state} busy={busy} run={run} path={path} />
+    </div>
+  );
+}
+
+/** Spectator toggle: "Intră la runda următoare" (queue for a seat at the next round). */
+export function QueueButton({ state, busy, run, path }: { state: RoomState; busy: string | null; run: Run; path: (a: string) => string }) {
+  const { me } = state;
+  if (me.seat !== null) return null;
+  return (
+    <Button variant="secondary" disabled={busy !== null} onClick={() => void run("queue", path("queue"), {})}>
+      {busy === "queue"
+        ? "…"
+        : me.queuePosition !== null
+          ? `În coadă (#${me.queuePosition}) · apasă ca să ieși`
+          : "Intră la runda următoare"}
     </Button>
   );
 }
@@ -400,6 +421,15 @@ function PeopleList({ state, token, refresh, receivedAt }: Props) {
   const { busy, error, run } = useAction(token, refresh);
   const spectators = players.filter((p) => p.seat === null);
 
+  // Host reorders between rounds: arrows move a member within its group (seated / queue / other spectators).
+  const groupOf = (p: PublicPlayer) => (p.seat ? "seat" : p.queuePosition !== null ? "queue" : "other");
+  const canReorder = canKick && room.status !== "playing";
+  async function move(index: number, dir: -1 | 1) {
+    const order = players.map((p) => p.id);
+    [order[index], order[index + dir]] = [order[index + dir], order[index]];
+    await run(`move:${players[index].id}`, `/api/rooms/${room.code}/reorder`, { order });
+  }
+
   async function kick(p: PublicPlayer) {
     const midRound =
       room.status === "playing" && p.seat !== null ? " Are 10 secunde să refuze; dacă nu, mâna în curs se anulează." : "";
@@ -412,8 +442,9 @@ function PeopleList({ state, token, refresh, receivedAt }: Props) {
       <h2 className="mb-1 font-bold">
         În cameră <span className="text-sm font-normal text-zinc-500">· {spectators.length}/{MAX_SPECTATORS} chibiți</span>
       </h2>
+      {canReorder && <p className="mb-1 text-xs text-zinc-500">Cu ↑↓ alegi cine aruncă primul (locul A) și ordinea cozii.</p>}
       <ul className="flex flex-col divide-y divide-zinc-200 dark:divide-zinc-800">
-        {players.map((p) => (
+        {players.map((p, i) => (
           <li key={p.id} className="flex items-center justify-between gap-2 py-2">
             <span className="flex min-w-0 items-center gap-2">
               <span className="truncate">
@@ -425,13 +456,33 @@ function PeopleList({ state, token, refresh, receivedAt }: Props) {
                   p.seat ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300" : "bg-zinc-200 dark:bg-zinc-800"
                 }`}
               >
-                {p.seat ? "la masă" : "chibiț"}
+                {p.seat ? "la masă" : p.queuePosition !== null ? `coadă #${p.queuePosition}` : "chibiț"}
               </span>
               {p.isHost && <span className="rounded bg-zinc-200 px-1.5 text-[10px] font-semibold uppercase dark:bg-zinc-800">host</span>}
               <OfflineBadge player={p} />
               <KickBadge player={p} receivedAt={receivedAt} />
             </span>
             <span className="flex shrink-0 items-center gap-2">
+              {canReorder && (
+                <span className="flex gap-1">
+                  {([-1, 1] as const).map((dir) => {
+                    const neighbour = players[i + dir];
+                    const ok = neighbour !== undefined && groupOf(neighbour) === groupOf(p);
+                    return (
+                      <button
+                        key={dir}
+                        type="button"
+                        onClick={() => void move(i, dir)}
+                        disabled={busy !== null || !ok}
+                        className="min-h-8 min-w-8 rounded-md border border-zinc-300 text-sm font-bold disabled:opacity-30 dark:border-zinc-700"
+                        aria-label={`${dir === -1 ? "Mută în sus" : "Mută în jos"} pe ${p.nickname}`}
+                      >
+                        {dir === -1 ? "↑" : "↓"}
+                      </button>
+                    );
+                  })}
+                </span>
+              )}
               <Balance value={p.balance} />
               {canKick && p.id !== me.id && (
                 <button

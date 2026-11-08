@@ -1,14 +1,15 @@
 import "server-only";
 import { notifyRoom } from "./broadcast";
 import { db, type RoomRow } from "./db";
-import { listPlayers, T, voidOpenBets } from "./room";
+import { fillSeatsFromQueue } from "@/lib/game";
+import { listPlayers, queuedSpectatorIds, T, voidOpenBets } from "./room";
 
 /**
  * Removes a member from a room (used by "leave" and the host's "kick").
  *  - last member out: the room is deleted
  *  - host removed: host passes to a seated player, else the oldest spectator
- *  - seated player removed: the round in progress is cancelled (open bets void) and the
- *    oldest spectator takes the free seat, so the table keeps going
+ *  - seated player removed: the round in progress is cancelled (open bets void) and the first
+ *    spectator in the "Intră la runda următoare" queue takes the free seat (none queued: the seat stays free)
  */
 export async function removePlayer(room: RoomRow, playerId: string, reason: string): Promise<{ roomClosed: boolean }> {
   const now = new Date().toISOString();
@@ -22,12 +23,14 @@ export async function removePlayer(room: RoomRow, playerId: string, reason: stri
 
   let seatA = room.seat_a === playerId ? null : room.seat_a;
   let seatB = room.seat_b === playerId ? null : room.seat_b;
+  let seatedFromQueue: string[] = [];
   const update: Record<string, unknown> = { updated_at: now, last_activity_at: now };
 
   if (seatA !== room.seat_a || seatB !== room.seat_b) {
-    const spectators = remaining.filter((p) => p.id !== seatA && p.id !== seatB);
-    if (!seatA && spectators[0]) seatA = spectators.shift()!.id;
-    if (!seatB && spectators[0]) seatB = spectators.shift()!.id;
+    const filled = fillSeatsFromQueue(seatA, seatB, queuedSpectatorIds({ ...room, seat_a: seatA, seat_b: seatB }, remaining));
+    seatA = filled.seatA;
+    seatB = filled.seatB;
+    seatedFromQueue = filled.seated;
     update.seat_a = seatA;
     update.seat_b = seatB;
     if (room.status === "playing") {
@@ -49,6 +52,11 @@ export async function removePlayer(room: RoomRow, playerId: string, reason: stri
 
   if (newHostId !== room.host_player_id && newHostId) {
     const { error } = await db().from(T.players).update({ is_host: true }).eq("id", newHostId);
+    if (error) throw error;
+  }
+
+  if (seatedFromQueue.length) {
+    const { error } = await db().from(T.players).update({ queued_at: null }).in("id", seatedFromQueue);
     if (error) throw error;
   }
 

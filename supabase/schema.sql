@@ -7,7 +7,7 @@ create extension if not exists pgcrypto;
 
 -- ---------------------------------------------------------------------------
 -- barbut_rooms: one row per room. Two seats (seat_a / seat_b) play, everyone else
--- in the room is a spectator (max 5). A "round" ("mână") ends at the first
+-- in the room is a spectator (max 16). A "round" ("mână") ends at the first
 -- decisive throw. throw_count is the optimistic-concurrency token for throws.
 -- ---------------------------------------------------------------------------
 create table if not exists public.barbut_rooms (
@@ -45,12 +45,14 @@ create table if not exists public.barbut_players (
   joined_at  timestamptz not null default now(),
   kick_requested_at timestamptz,                             -- pending host kick (10 s to press "Ignoră"), null = none
   last_seen_at timestamptz not null default now(),           -- presence: disconnected after 45 s, see migrations/002
-  device_hash  text                                          -- sha256 of the browser's device id, see migrations/002
+  device_hash  text,                                         -- sha256 of the browser's device id, see migrations/002
+  queued_at    timestamptz                                   -- spectator waiting for a seat at the next round, see migrations/003
 );
 -- Idempotent for databases created before these columns (supabase/migrations/001_pending_kick.sql, 002_reconnect.sql).
 alter table public.barbut_players add column if not exists kick_requested_at timestamptz;
 alter table public.barbut_players add column if not exists last_seen_at timestamptz not null default now();
 alter table public.barbut_players add column if not exists device_hash text;
+alter table public.barbut_players add column if not exists queued_at timestamptz;
 create unique index if not exists barbut_players_room_nickname_uq on public.barbut_players (room_id, lower(nickname));
 create index if not exists barbut_players_room_idx on public.barbut_players (room_id);
 create index if not exists barbut_players_room_seen_idx on public.barbut_players (room_id, last_seen_at);

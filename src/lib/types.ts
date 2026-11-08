@@ -13,6 +13,8 @@ export interface PublicPlayer {
   kickRemainingMs: number | null;
   /** Seen in the last 45 s (see lib/reconnect.ts). False = phone in the background, closed tab, no network. */
   connected: boolean;
+  /** 1-based place in the "Intră la runda următoare" queue, null when not queued. */
+  queuePosition: number | null;
 }
 
 export interface ThrowItem {
@@ -50,7 +52,7 @@ export interface RoomState {
     winnerPlayerId: string | null;
     throwCount: number;
   };
-  /** Seated players first (A, B), then spectators in join order. */
+  /** Seated players first (A, B), then queued spectators (queue order), then the other spectators in join order. */
   players: PublicPlayer[];
   me: PublicPlayer;
   /** Throws of the current (or just finished) round, oldest first. */

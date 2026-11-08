@@ -47,7 +47,9 @@ export interface PlayerRow {
   kick_requested_at: string | null;
   /** Presence stamp, touched by requireMember. Needs migration 002_reconnect.sql. */
   last_seen_at: string;
+  /** Spectator queue stamp ("Intră la runda următoare"), null = not queued. Needs migration 003_spectator_queue.sql. */
+  queued_at: string | null;
 }
 
 /** Never add token_hash / device_hash here: these rows feed the public state. */
-export const PLAYER_COLUMNS = "id, room_id, nickname, is_host, balance, joined_at, kick_requested_at, last_seen_at";
+export const PLAYER_COLUMNS = "id, room_id, nickname, is_host, balance, joined_at, kick_requested_at, last_seen_at, queued_at";
