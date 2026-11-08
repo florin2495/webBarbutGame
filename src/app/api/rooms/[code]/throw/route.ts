@@ -3,6 +3,7 @@ import { betDelta, roundWinner, settleBraila, settleSan, throwOutcome, type BetS
 import { notifyRoom } from "@/lib/server/broadcast";
 import { db } from "@/lib/server/db";
 import { fail, handle } from "@/lib/server/http";
+import { reportRound } from "@/lib/server/leaderboard";
 import { addBalance, requireMember, T } from "@/lib/server/room";
 
 // POST /api/rooms/[code]/throw - the player holding the dice throws. Dice are rolled on the server.
@@ -80,6 +81,16 @@ export async function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/th
       add(winner === player.id ? other : player.id, -room.stake);
     }
     for (const [id, delta] of deltas) await addBalance(id, delta);
+
+    if (winner) {
+      // Round over: report to the hub leaderboard (best effort, see lib/server/leaderboard.ts).
+      const { data: rows } = await db().from(T.players).select("id, nickname").in("id", [player.id, other]);
+      await reportRound(
+        room.code,
+        room.round,
+        (rows ?? []).map((r) => ({ nickname: r.nickname as string, won: r.id === winner })),
+      );
+    }
 
     await notifyRoom(room.id, "throw");
     return { d1, d2, outcome };
