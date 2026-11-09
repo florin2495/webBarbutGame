@@ -17,20 +17,24 @@ interface Props {
   state: RoomState;
   token: string;
   refresh: () => Promise<void>;
+  /** Applies a state returned by an action, saving the follow-up /state request. */
+  applyState?: (s: RoomState) => void;
   /** When the state was fetched (ms epoch), for local countdowns. */
   receivedAt: number;
 }
 
 /** Runs an API action with a busy flag and a user-facing error. */
-function useAction(token: string, refresh: () => Promise<void>) {
+function useAction(token: string, refresh: () => Promise<void>, applyState?: (s: RoomState) => void) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
   async function run(key: string, path: string, body: unknown = {}) {
     setBusy(key);
     setError("");
     try {
-      await api(path, { token, body });
-      await refresh();
+      const res = await api<{ state?: RoomState } | null>(path, { token, body });
+      // Actions that return the new state (throw, start, bet) need no /state afterwards.
+      if (res?.state && applyState) applyState(res.state);
+      else await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Eroare.");
     } finally {
@@ -40,9 +44,9 @@ function useAction(token: string, refresh: () => Promise<void>) {
   return { busy, error, run };
 }
 
-export function Table({ state, token, refresh, receivedAt }: Props) {
+export function Table({ state, token, refresh, applyState, receivedAt }: Props) {
   const { room, me, players, throws } = state;
-  const { busy, error, run } = useAction(token, refresh);
+  const { busy, error, run } = useAction(token, refresh, applyState);
   const nick = new Map(players.map((p) => [p.id, p.nickname]));
   const seatA = players.find((p) => p.seat === "A") ?? null;
   const seatB = players.find((p) => p.seat === "B") ?? null;

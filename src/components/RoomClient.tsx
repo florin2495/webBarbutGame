@@ -54,18 +54,22 @@ function useRoomState(code: string, token: string) {
   const [error, setError] = useState("");
   const [missing, setMissing] = useState(false);
   const [receivedAt, setReceivedAt] = useState(0);
-  const latest = useRef(0);
+  const latest = useRef(0); // id of the last request started
+  const applied = useRef(0); // id of the request (or action response) the screen shows
 
   const refresh = useCallback(async () => {
     const id = ++latest.current;
     try {
       const s = await api<RoomState>(`/api/rooms/${code}/state`, { token });
-      if (id !== latest.current) return; // a newer request already answered
+      // Show any answer newer than what is on screen. Waiting for the *latest* request instead made every
+      // action wait for a second /state (broadcast refresh + post-action refresh).
+      if (id <= applied.current) return;
+      applied.current = id;
       setState(s);
       setReceivedAt(Date.now());
       setError("");
     } catch (err) {
-      if (id !== latest.current) return;
+      if (id <= applied.current) return;
       if (err instanceof ApiRequestError && err.status === 401) {
         // Another tab may already hold a newer token for this room (seat reclaimed): keep that one.
         if (parseSession(readSessionRaw(code))?.token !== token) return;
@@ -78,6 +82,14 @@ function useRoomState(code: string, token: string) {
       }
     }
   }, [code, token]);
+
+  /** Shows the state an action response carried; /state requests started before it are older and dropped. */
+  const applyState = useCallback((s: RoomState) => {
+    applied.current = latest.current;
+    setState(s);
+    setReceivedAt(Date.now());
+    setError("");
+  }, []);
 
   // Bumping this tears the Realtime channel down and subscribes again (phones kill sockets in the background).
   const [reconnectKey, setReconnectKey] = useState(0);
@@ -138,11 +150,11 @@ function useRoomState(code: string, token: string) {
     };
   }, [roomId, refresh, reconnectKey]);
 
-  return { state, receivedAt, error, missing, refresh };
+  return { state, receivedAt, error, missing, refresh, applyState };
 }
 
 function Room({ code, token }: { code: string; token: string }) {
-  const { state, receivedAt, error, missing, refresh } = useRoomState(code, token);
+  const { state, receivedAt, error, missing, refresh, applyState } = useRoomState(code, token);
 
   // A pending kick has no server timer: when the soonest one runs out, re-fetch once so it is enforced promptly
   // (at 0 s for the display, and again after the server's 2 s network tolerance, when the removal really happens).
@@ -184,7 +196,7 @@ function Room({ code, token }: { code: string; token: string }) {
     <main className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 py-4">
       <RoomHeader state={state} />
       {error && <ErrorText>Conexiune instabilă: {error}</ErrorText>}
-      <Table state={state} token={token} refresh={refresh} receivedAt={receivedAt} />
+      <Table state={state} token={token} refresh={refresh} applyState={applyState} receivedAt={receivedAt} />
       <SettingsPanel />
       <LeaveButton state={state} token={token} />
       {state.me.kickRemainingMs !== null && (

@@ -1,12 +1,12 @@
 import { connection } from "next/server";
-import { isValidStake, MAX_SPECTATORS, NICKNAME_MAX, STAKE_DEFAULT } from "@/lib/game";
+import { isValidStake, NICKNAME_MAX, STAKE_DEFAULT } from "@/lib/game";
 import { hashDeviceId, hashPassword, hashToken, newPlayerToken, newRoomCode } from "@/lib/server/crypto";
 import { db } from "@/lib/server/db";
 import { cleanText, fail, handle, isUniqueViolation, readJson } from "@/lib/server/http";
 import { cleanupExpiredRooms, T } from "@/lib/server/room";
 import type { RoomListItem } from "@/lib/types";
 
-// GET /api/rooms - public list of open rooms: a free seat, or room for one more spectator.
+// GET /api/rooms - public list of all live rooms (lobby and in-game, full ones too; expired rooms are cleaned up first).
 export async function GET() {
   await connection(); // always request-time, never prerendered at build
   return handle(async () => {
@@ -33,7 +33,7 @@ export async function GET() {
           spectators: Math.max(0, total - seated),
         };
       })
-      .filter((r) => r.seated < 2 || r.spectators < MAX_SPECTATORS);
+      ;
     return { rooms };
   });
 }

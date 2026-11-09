@@ -4,7 +4,7 @@ import { notifyRoom } from "@/lib/server/broadcast";
 import { db } from "@/lib/server/db";
 import { fail, handle } from "@/lib/server/http";
 import { reportRound } from "@/lib/server/leaderboard";
-import { addBalance, requireMember, T } from "@/lib/server/room";
+import { addBalance, requireMember, stateAfterAction, T } from "@/lib/server/room";
 
 // POST /api/rooms/[code]/throw - the player holding the dice throws. Dice are rolled on the server.
 //  - win/lose throw: the round ends, the stake moves, Brăila bets are settled
@@ -93,6 +93,6 @@ export async function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/th
     }
 
     await notifyRoom(room.id, "throw");
-    return { d1, d2, outcome };
+    return { d1, d2, outcome, state: await stateAfterAction(room, player) };
   });
 }

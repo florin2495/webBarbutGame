@@ -1,7 +1,7 @@
 import { notifyRoom } from "@/lib/server/broadcast";
 import { db, ROOM_COLUMNS, type RoomRow } from "@/lib/server/db";
 import { fail, handle, isUniqueViolation, readJson } from "@/lib/server/http";
-import { isSeated, requireMember, T } from "@/lib/server/room";
+import { isSeated, requireMember, stateAfterAction, T } from "@/lib/server/room";
 
 // POST /api/rooms/[code]/bet  { kind: "braila", targetPlayerId } | { kind: "san" }
 // Spectators only. Amount = the room stake.
@@ -52,6 +52,6 @@ export async function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/be
     }
 
     await notifyRoom(room.id, "bet");
-    return { ok: true };
+    return { ok: true, state: await stateAfterAction(room, player) };
   });
 }

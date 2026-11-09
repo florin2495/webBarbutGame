@@ -3,7 +3,7 @@ import { notifyRoom } from "@/lib/server/broadcast";
 import { db } from "@/lib/server/db";
 import { fail, handle } from "@/lib/server/http";
 import { clearPendingKicks } from "@/lib/server/kick";
-import { isSeated, listPlayers, queuedSpectatorIds, requireMember, T } from "@/lib/server/room";
+import { isSeated, listPlayers, queuedSpectatorIds, requireMember, stateAfterAction, T } from "@/lib/server/room";
 
 // POST /api/rooms/[code]/start - one of the two seated players starts a new round ("mână").
 // Whoever won the last round keeps the dice and throws first.
@@ -48,6 +48,6 @@ export async function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/st
     if (fromQueue.length) await db().from(T.players).update({ queued_at: null }).in("id", fromQueue);
     await clearPendingKicks(room.id);
     await notifyRoom(room.id, "round_started");
-    return { ok: true };
+    return { ok: true, state: await stateAfterAction(room, player) };
   });
 }

@@ -211,3 +211,8 @@ export async function buildState(room: RoomRow, me: PlayerRow): Promise<RoomStat
     bets,
   };
 }
+
+/** Fresh state for the caller right after an action, so the client needs no follow-up /state request. */
+export async function stateAfterAction(room: RoomRow, me: PlayerRow): Promise<RoomState> {
+  return buildState(await getRoomByCode(room.code), me);
+}
