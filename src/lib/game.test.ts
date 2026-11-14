@@ -123,5 +123,6 @@ describe("isPermutation / playerKey", () => {
   });
   it("lowercases and trims nicknames", () => {
     expect(playerKey("  Ion ")).toBe("ion");
+    expect(playerKey("A".repeat(50))).toHaveLength(40);
   });
 });

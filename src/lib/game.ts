@@ -142,7 +142,7 @@ export function isPermutation(order: unknown, ids: string[]): order is string[] 
   return true;
 }
 
-/** Leaderboard identity: nickname lowercased and trimmed (no accounts, same nickname = same person). */
+/** Leaderboard identity: nickname lowercased and trimmed, capped at 40 chars (no accounts, same nickname = same person). */
 export function playerKey(nickname: string): string {
-  return nickname.trim().toLowerCase();
+  return nickname.trim().toLowerCase().slice(0, 40);
 }
