@@ -1,11 +1,12 @@
 // End-to-end test of the Barbut API with real players. Usage: node scripts/e2e.mjs [baseUrl incl. /barbut]
 // Default: production. Every room is named "e2e-test-..." and deleted at the end (leave as everyone, then a
-// DB delete of leftovers by code with the service key from .env.local as a safety net).
-// Does not write feedback (hub_feedback).
+// DB delete of leftovers by code with the service key as a safety net: env NEXT_PUBLIC_SUPABASE_URL +
+// SUPABASE_SERVICE_ROLE_KEY (GitHub Actions secrets), else .env.local). Never sends feedback (hub_feedback).
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 const BASE = (process.argv[2] ?? "https://games.hailatat.icu/barbut").replace(/\/$/, "");
+const MAX_SPECTATORS = 16; // src/lib/game.ts
 const created = new Set();
 let failures = 0;
 
@@ -99,6 +100,13 @@ async function httpChecks() {
   const origin = new URL(BASE).origin;
   const codes = await Promise.all(assets.slice(0, 15).map(async (a) => (await fetch(origin + a)).status));
   check(assets.length > 0 && codes.every((c) => c === 200), `${assets.length} /_next assets referenced, first ${codes.length} all 200`);
+  // The version is shown in the settings panel of the room page: look in the JS chunks of both pages.
+  const roomHtml = await (await fetch(BASE + "/room/XXXXXX")).text();
+  const js = [...new Set((html + roomHtml).match(/\/barbut\/_next\/static\/[^"'\s)\\]+\.js/g) ?? [])];
+  const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
+  let hasVersion = false;
+  for (const a of js) if (!hasVersion && (await (await fetch(origin + a)).text()).includes(`"${version}"`)) hasVersion = true;
+  check(hasVersion, `client JS contains version ${version} (${js.length} chunks)`);
   const manifest = await fetch(BASE + "/manifest.webmanifest");
   const m = await manifest.json().catch(() => ({}));
   check(manifest.status === 200 && m.start_url === "/barbut/", `manifest 200 (${manifest.status})`);
@@ -150,16 +158,21 @@ async function main() {
   check(s.me.isHost && !s.players.find((p) => p.id === B.playerId).isHost, "only Ana is host");
   const list = await call("/api/rooms");
   const item = list.data.rooms?.find((x) => x.code === code);
-  check(item && item.hasPassword && item.seated === 2 && item.spectators === 2 && item.name === name, "room in public list (password, 2 seated, 2 spectators)");
+  check(item && item.hasPassword && item.seated === 2 && item.spectators === 2 && item.name === name && item.status === "waiting", "room in public list (password, 2 seated, 2 spectators, waiting)");
   check(!JSON.stringify(list.data).includes("password_hash"), "list leaks no password hash");
 
   console.log("Spectator limit");
   const extra = [];
-  for (const n of ["Sp1", "Sp2", "Sp3"]) extra.push(await join(n, { deviceId: randomUUID() }));
-  check(extra.every((x) => x.status === 200), "3 more spectators join (5 total)");
-  check((await join("Sp4", { deviceId: randomUUID() })).status === 409, "6th spectator = 409");
-  check(!(await call("/api/rooms")).data.rooms?.some((x) => x.code === code), "full room hidden from the public list");
-  for (const x of extra) check((await call(`/api/rooms/${code}/leave`, { token: x.token, body: {} })).status === 200, `${x.name} leaves`);
+  for (let i = 1; i <= MAX_SPECTATORS - 2; i++) extra.push(await join(`Sp${i}`, { deviceId: randomUUID() }));
+  check(extra.every((x) => x.status === 200), `${extra.length} more spectators join (${MAX_SPECTATORS} total)`);
+  check((await join("SpX", { deviceId: randomUUID() })).status === 409, `spectator #${MAX_SPECTATORS + 1} = 409`);
+  const full = (await call("/api/rooms")).data.rooms?.find((x) => x.code === code);
+  check(full && full.spectators === MAX_SPECTATORS, `full room still in the public list, with ${MAX_SPECTATORS} spectators`);
+  for (const x of extra) {
+    const res = await call(`/api/rooms/${code}/leave`, { token: x.token, body: {} });
+    if (res.status !== 200) check(false, `${x.name} leaves (${res.status})`);
+  }
+  check(true, `the ${extra.length} extra spectators leave`);
 
   console.log("Rejoin with the saved token / same device");
   check((await call(`/api/rooms/${code}/join`, { body: { nickname: "bob", password: "pw", deviceId: randomUUID() } })).status === 409, "Bob's nickname from another device while connected = 409");
@@ -250,6 +263,27 @@ async function main() {
   check((await call(`/api/rooms/${code}/seat`, { token: C.token, body: { action: "stand" } })).status === 200, "Cris stands up");
   check((await call(`/api/rooms/${code}/seat`, { token: B.token, body: { action: "sit" } })).status === 200, "Bob sits back");
 
+  console.log("Queue and host reorder");
+  check((await call(`/api/rooms/${code}/queue`, { token: A.token, body: {} })).status === 409, "seated player queue = 409");
+  const q1 = await call(`/api/rooms/${code}/queue`, { token: C.token, body: {} });
+  const q2 = await call(`/api/rooms/${code}/queue`, { token: D.token, body: {} });
+  check(q1.status === 200 && q1.data.queued === true && q2.data.queued === true, `Cris then Dan queue for the next round (${q1.status} ${q1.data.error ?? ""})`);
+  s = await state(code, A);
+  const pos = (st, id) => st.players.find((p) => p.id === id)?.queuePosition;
+  check(pos(s, C.playerId) === 1 && pos(s, D.playerId) === 2, "queue positions: Cris #1, Dan #2");
+  check(s.players.map((p) => p.id).join() === [A, B, C, D].map((p) => p.playerId).join(), "players listed seated first, then the queue");
+  check((await call(`/api/rooms/${code}/reorder`, { token: B.token, body: { order: [B, A, D, C].map((p) => p.playerId) } })).status === 403, "non-host reorder = 403");
+  check((await call(`/api/rooms/${code}/reorder`, { token: A.token, body: { order: [A.playerId, B.playerId] } })).status === 400, "reorder with missing members = 400");
+  check((await call(`/api/rooms/${code}/reorder`, { token: A.token, body: { order: [B, A, D, C].map((p) => p.playerId) } })).status === 200, "host reorders: Bob, Ana, Dan, Cris");
+  s = await state(code, C);
+  check(s.room.seatA === B.playerId && s.room.seatB === A.playerId, "Bob on seat A (throws first), Ana on seat B");
+  check(pos(s, D.playerId) === 1 && pos(s, C.playerId) === 2, "queue reordered: Dan #1, Cris #2");
+  const q3 = await call(`/api/rooms/${code}/queue`, { token: D.token, body: {} });
+  const q4 = await call(`/api/rooms/${code}/queue`, { token: C.token, body: {} });
+  check(q3.data.queued === false && q4.data.queued === false, "both leave the queue (toggle)");
+  s = await state(code, A);
+  check(s.players.every((p) => p.queuePosition === null), "nobody queued");
+
   console.log("Kick");
   check((await call(`/api/rooms/${code}/kick`, { token: B.token, body: { playerId: D.playerId } })).status === 403, "non-host kick = 403");
   check((await call(`/api/rooms/${code}/kick`, { token: A.token, body: { playerId: A.playerId } })).status === 400, "host kicks self = 400");
@@ -258,6 +292,11 @@ async function main() {
   check(k1.status === 200 && !k1.data.pending, "kick spectator between rounds: immediate");
   check((await call(`/api/rooms/${code}/state`, { token: D.token })).status === 401, "Dan's token = 401 after kick");
   check((await call(`/api/rooms/${code}/start`, { token: A.token, body: {} })).status === 200, "round 3 starts");
+  s = await state(code, A);
+  check(s.room.throwerPlayerId === B.playerId, "round 3: seat A (Bob, after the reorder) throws first");
+  check((await call(`/api/rooms/${code}/reorder`, { token: A.token, body: { order: [A, B, C].map((p) => p.playerId) } })).status === 409, "reorder mid-round = 409");
+  const qc = await call(`/api/rooms/${code}/queue`, { token: C.token, body: {} });
+  check(qc.status === 200 && qc.data.queued === true, "Cris queues mid-round");
   const k2 = await call(`/api/rooms/${code}/kick`, { token: A.token, body: { playerId: B.playerId } });
   check(k2.data.pending === true, "kick seated player mid-round: pending");
   s = await state(code, B);
@@ -268,7 +307,8 @@ async function main() {
   await sleep(12_500);
   check((await call(`/api/rooms/${code}/state`, { token: B.token })).status === 401, "kick enforced after 12 s");
   s = await state(code, A);
-  check(s.room.status === "waiting" && s.room.seatB === C.playerId && s.players.length === 2, "round cancelled, Cris takes the free seat");
+  check(s.room.status === "waiting" && s.room.seatA === C.playerId && s.room.seatB === A.playerId && s.players.length === 2, "round cancelled, queued Cris takes Bob's free seat");
+  check(s.players.every((p) => p.queuePosition === null), "Cris left the queue when seated");
 
   console.log("Leave and cleanup");
   const l1 = await call(`/api/rooms/${code}/leave`, { token: A.token, body: {} });
@@ -281,16 +321,23 @@ async function main() {
   created.delete(code);
 }
 
-/** Safety net: delete rooms left behind by a failed run, straight in the DB, by code (service key from .env.local). */
+/** Safety net: delete rooms left behind by a failed run, straight in the DB, by code (service key from env or .env.local). */
+/** Supabase URL + service key: environment (GitHub Actions secrets) first, else .env.local. */
+function supabaseEnv() {
+  const { NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
+  if (NEXT_PUBLIC_SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) return { NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY };
+  return Object.fromEntries(
+    readFileSync(new URL("../.env.local", import.meta.url), "utf8")
+      .split(/\r?\n/)
+      .filter((l) => l.includes("=") && !l.startsWith("#"))
+      .map((l) => [l.slice(0, l.indexOf("=")).trim(), l.slice(l.indexOf("=") + 1).trim().replace(/^"|"$/g, "")]),
+  );
+}
+
 async function cleanup() {
   if (created.size === 0) return;
   try {
-    const env = Object.fromEntries(
-      readFileSync(new URL("../.env.local", import.meta.url), "utf8")
-        .split(/\r?\n/)
-        .filter((l) => l.includes("=") && !l.startsWith("#"))
-        .map((l) => [l.slice(0, l.indexOf("=")).trim(), l.slice(l.indexOf("=") + 1).trim()]),
-    );
+    const env = supabaseEnv();
     const codes = [...created].join(",");
     const url = `${env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/barbut_rooms?code=in.(${codes})&name=like.e2e-test-*`;
     const key = env.SUPABASE_SERVICE_ROLE_KEY;

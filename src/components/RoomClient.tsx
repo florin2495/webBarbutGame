@@ -297,7 +297,7 @@ function LeaveButton({ state, token }: { state: RoomState; token: string }) {
 
   return (
     <div className="pb-6 pt-2 text-center">
-      <Button variant="danger" className="w-full" onClick={() => void leave()} disabled={busy}>
+      <Button variant="danger" className="w-full" onClick={() => void leave()} disabled={busy} data-testid="leave">
         {busy ? "Se iese…" : "Părăsește camera"}
       </Button>
       <div className="mt-2">
@@ -336,7 +336,7 @@ function RoomHeader({ state }: { state: RoomState }) {
           ← Barbut
         </Link>
         <h1 className="truncate text-xl font-black">{room.name}</h1>
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-zinc-500" data-testid="room-status">
           miză {room.stake} · {spectators}/{MAX_SPECTATORS} chibiți · {statusLabel}
         </p>
       </div>
@@ -414,7 +414,7 @@ function JoinForm({ code }: { code: string }) {
             onChange={setSpectate}
           />
           <ErrorText>{error}</ErrorText>
-          <Button type="submit" disabled={busy}>
+          <Button type="submit" disabled={busy} data-testid="join-submit">
             {busy ? "Se încarcă…" : "Intră"}
           </Button>
         </form>

@@ -3,7 +3,7 @@
 # webBarbutGame - project notes for Claude
 
 ## Accounts and deploy
-- GitHub: personal account **florin2495** only (repo `florin2495/webBarbutGame`, private). Never the work account.
+- GitHub: personal account **florin2495** only (repo `florin2495/webBarbutGame`, public). Never the work account.
   Local git identity is pinned in `.git/config`.
 - The user connects the repo to Vercel by hand. Once connected, every push to `main` deploys to production.
 - Ask the user before pushing (= deploying), unless they explicitly say to deploy.
@@ -50,7 +50,49 @@ Rules for schema changes:
   (players, throws, bets cascade). Open room pages keep both fresh (`/state` polls every 15 s, `last_seen_at` touched
   every 10 s, `last_activity_at` every 20 s), so only rooms nobody has open disappear. The 10/30-minute expiry stays too.
 
-## Testing
-- `npm test` (Vitest, pure rules in `src/lib/game.ts`, `kick.ts`, `reconnect.ts`), `npx tsc --noEmit`, `npx eslint src`, `npx next build`.
-- End-to-end: drive the real API with 2 players + spectators (create, join, spectate, start, throw, bet braila/san,
-  seat sit/stand, settings, leave mid-round, kick, 6th spectator refused) against `npm run dev`. Delete test rooms afterwards.
+## Testing (GitHub Actions, manual only)
+All checks run in GitHub Actions on the free tier (public repo, standard `ubuntu-latest` runners only, never billed /
+larger / macOS runners), never locally (user's rule, see `D:\_DEv\CLAUDE.md`). Every workflow is `workflow_dispatch`
+only (no automatic trigger, the user's choice): nothing gates a push, and Vercel deploys `main` regardless.
+Start one with `gh workflow run <file> --ref main`, then `gh run watch` (or the Actions tab, "Run workflow").
+| Workflow | Runs |
+| --- | --- |
+| `.github/workflows/check.yml` "Check code" | `npx next typegen` + `npx tsc --noEmit` (typegen first, so route types in `.next/types` are checked), `npx eslint src`, `npx next build`. Every step runs even if an earlier one failed |
+| `.github/workflows/unit-tests.yml` "Unit tests" | `npm test` (Vitest: `src/lib/game.test.ts`, `kick.test.ts`, `reconnect.test.ts`; pure rules, no DB) |
+| `.github/workflows/e2e.yml` "E2E" | `node scripts/e2e.mjs <base_url>` (input, default production `https://games.hailatat.icu/barbut`); one run at a time |
+| `.github/workflows/e2e-ui.yml` "E2E UI (Playwright)" | `npx playwright test` (`playwright.config.ts`, tests in `tests/ui/*.e2e.ts`) against `base_url` (`E2E_BASE_URL`, default production), on desktop Chromium and an emulated iPhone 13 (WebKit). Same concurrency group as "E2E". On failure the report (traces, screenshots, videos) is uploaded as the `playwright-report` artifact |
+
+- E2E needs the repo secrets `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (only for the cleanup safety net;
+  locally the script falls back to `.env.local`). It checks that the deployed client JS contains the `package.json`
+  version of the checked-out ref, so run it on `main` after the Vercel deploy of that version has finished.
+- What E2E does: checks page / `_next` assets / version / manifest / icons / `room/XXXXXX` over HTTP and that
+  `web-barbut-game.vercel.app/barbut` serves the same JS, then drives the real API (production DB) with 4 members:
+  create (password, bad stake), join, wrong / missing password, unknown room, public room list (no hash leak),
+  16 spectators then the 17th refused (full room still listed), rejoin (same device, old token dead, mid-round),
+  settings (host only, not mid-round), start (seated only, once), out-of-turn / spectator / bad-token throws,
+  Brăila and Șan bets (spectators only, one each, validation), every member sees the same state (no token / hash
+  leak), concurrent double throw, two full rounds checked against the rules (outcomes, dice passing, bet settlement,
+  balances), sit / stand between rounds, spectator queue (toggle, positions) and host reorder (seat A throws first,
+  queue order, 403 / 400 / 409 mid-round), kick (immediate between rounds, pending mid-round, "Ignoră", enforced
+  after 12 s with the queued spectator taking the seat), host handover on leave, last one out closes the room.
+  Rooms are named `e2e-test-…` and deleted at the end; it never calls `/api/feedback`. Finished rounds are reported
+  to the hub leaderboard like any other round (players "Ana", "Bob", "Cris").
+- What E2E UI does (`tests/ui/`, shared steps in `helpers.ts`; every change must reach the other screens within 5 s
+  without a reload, polling is 15 s, so this checks Realtime). Dice are random: the helpers read whose turn it is
+  from the screen (`throw-button` visible on exactly one) and throw until the round ends, never a fixed result.
+  - `game.e2e.ts` (both projects): two browser contexts (= two devices) create a password room, join by link, start,
+    play a full round live (throw counter on the other screen), winner banner and +/- stake on both, round 2 started
+    by the guest (winner keeps the dice), guest leaves mid-round (seat freed live), host leaves.
+  - `spectator.e2e.ts` (desktop Chromium only): a third person joins mid-round = spectator (bet panel, no throw /
+    start buttons), the players see them, Brăila + Șan bets appear on the players' screens, queue ("coadă #1" seen by
+    the players), every throw live, end of round with bets settled, a player leaves and the queued spectator takes
+    the seat and starts round 2.
+  - `mobile.e2e.ts` (iPhone only): no horizontal scroll on home / room between rounds / round in progress, main
+    buttons >= 24 px, a touch tap on "Aruncă zarurile" throws and the other phone sees it.
+  Rooms are `e2e-test-ui-…`; a leftover is deleted with the service key from the same repo secrets.
+- Playwright files are `*.e2e.ts`, never `*.spec.ts` / `*.test.ts` (Vitest would pick those up).
+- The UI tests find elements by `data-testid`: `home-submit` (Home), `join-submit`, `leave`, `room-status`
+  (RoomClient), `seat-a`, `seat-b`, `dice-area` (with `data-throw-count` = throws of the round), `throw-button`,
+  `turn-info`, `round-winner`, `start-round`, `stand-up`, `sit-down`, `queue-toggle`, `bet-panel`, `bet-braila`,
+  `bet-san`, `bet-list` (items with `data-status`), `throw-history`, `people-list` (Table). Renaming or removing one
+  breaks `tests/ui`.

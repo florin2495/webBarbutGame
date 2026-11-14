@@ -60,8 +60,8 @@ export function Table({ state, token, refresh, applyState, receivedAt }: Props) 
     <>
       <Card className="flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-3">
-          <SeatCard player={seatA} state={state} />
-          <SeatCard player={seatB} state={state} />
+          <SeatCard player={seatA} state={state} testId="seat-a" />
+          <SeatCard player={seatB} state={state} testId="seat-b" />
         </div>
 
         <DiceArea last={last} rolling={rolling} nick={nick} state={state} />
@@ -70,6 +70,7 @@ export function Table({ state, token, refresh, applyState, receivedAt }: Props) 
           iThrow ? (
             <Button
               className="min-h-14 text-lg"
+              data-testid="throw-button"
               disabled={busy !== null || rolling}
               onClick={() => {
                 unlockAudio();
@@ -79,7 +80,7 @@ export function Table({ state, token, refresh, applyState, receivedAt }: Props) 
               {busy === "throw" ? "Se aruncă…" : "🎲 Aruncă zarurile"}
             </Button>
           ) : (
-            <p className="rounded-lg bg-zinc-100 py-3 text-center text-sm font-semibold dark:bg-zinc-900">
+            <p className="rounded-lg bg-zinc-100 py-3 text-center text-sm font-semibold dark:bg-zinc-900" data-testid="turn-info">
               Aruncă {nick.get(room.throwerPlayerId ?? "") ?? "…"}
             </p>
           )
@@ -131,11 +132,11 @@ function useRolling(last: ThrowItem | null): boolean {
   return rollingKey !== null && rollingKey === key;
 }
 
-function SeatCard({ player, state }: { player: PublicPlayer | null; state: RoomState }) {
+function SeatCard({ player, state, testId }: { player: PublicPlayer | null; state: RoomState; testId: string }) {
   const { room, me } = state;
   if (!player) {
     return (
-      <div className="flex min-h-24 flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-300 p-3 text-center text-sm text-zinc-500 dark:border-zinc-700">
+      <div data-testid={testId} className="flex min-h-24 flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-300 p-3 text-center text-sm text-zinc-500 dark:border-zinc-700">
         Loc liber
       </div>
     );
@@ -144,6 +145,7 @@ function SeatCard({ player, state }: { player: PublicPlayer | null; state: RoomS
   const won = room.status === "finished" && room.winnerPlayerId === player.id;
   return (
     <div
+      data-testid={testId}
       className={`flex min-h-24 flex-col items-center justify-center gap-1 rounded-xl border-2 p-3 text-center transition-colors ${
         hasDice
           ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950"
@@ -208,7 +210,10 @@ function DiceArea({
   const winner = room.status === "finished" && room.winnerPlayerId ? nick.get(room.winnerPlayerId) : null;
 
   return (
-    <div className="flex flex-col items-center gap-3 rounded-xl bg-emerald-800 px-3 py-6 text-white shadow-inner dark:bg-emerald-950">
+    <div
+      data-testid="dice-area"
+      data-throw-count={state.throws.length}
+      className="flex flex-col items-center gap-3 rounded-xl bg-emerald-800 px-3 py-6 text-white shadow-inner dark:bg-emerald-950">
       <div className="flex gap-4">
         <Die value={shown[0]} rolling={rolling} tone={tone} />
         <Die value={shown[1]} rolling={rolling} tone={tone} />
@@ -217,7 +222,7 @@ function DiceArea({
         {caption}
       </p>
       {winner && !rolling && (
-        <p className="rounded-full bg-amber-400 px-4 py-1 text-center text-sm font-black text-amber-950">
+        <p data-testid="round-winner" className="rounded-full bg-amber-400 px-4 py-1 text-center text-sm font-black text-amber-950">
           🏆 {room.winnerPlayerId === state.me.id ? "Ai câștigat mâna!" : `${winner} câștigă mâna`} (+{room.stake})
         </p>
       )}
@@ -236,7 +241,7 @@ function BetweenRounds({ state, busy, run, path }: { state: RoomState; busy: str
     return (
       <div className="flex flex-col gap-2">
         {full ? (
-          <Button className="min-h-14 text-lg" disabled={busy !== null} onClick={() => void run("start", path("start"))}>
+          <Button className="min-h-14 text-lg" data-testid="start-round" disabled={busy !== null} onClick={() => void run("start", path("start"))}>
             {busy === "start" ? "Se pornește…" : room.round === 0 ? "Începe jocul" : "Mână nouă"}
           </Button>
         ) : (
@@ -246,6 +251,7 @@ function BetweenRounds({ state, busy, run, path }: { state: RoomState; busy: str
         )}
         <Button
           variant="secondary"
+          data-testid="stand-up"
           disabled={busy !== null || spectators >= MAX_SPECTATORS}
           onClick={() => void run("stand", path("seat"), { action: "stand" })}
         >
@@ -261,7 +267,7 @@ function BetweenRounds({ state, busy, run, path }: { state: RoomState; busy: str
           Ești chibiț. Jucătorii pornesc mâna următoare.
         </p>
       ) : (
-        <Button className="min-h-14 text-lg" disabled={busy !== null} onClick={() => void run("sit", path("seat"), { action: "sit" })}>
+        <Button className="min-h-14 text-lg" data-testid="sit-down" disabled={busy !== null} onClick={() => void run("sit", path("seat"), { action: "sit" })}>
           {busy === "sit" ? "Te așezi…" : "Ia locul la masă"}
         </Button>
       )}
@@ -275,7 +281,7 @@ export function QueueButton({ state, busy, run, path }: { state: RoomState; busy
   const { me } = state;
   if (me.seat !== null) return null;
   return (
-    <Button variant="secondary" disabled={busy !== null} onClick={() => void run("queue", path("queue"), {})}>
+    <Button variant="secondary" data-testid="queue-toggle" disabled={busy !== null} onClick={() => void run("queue", path("queue"), {})}>
       {busy === "queue"
         ? "…"
         : me.queuePosition !== null
@@ -294,7 +300,7 @@ function BetPanel({ state, busy, run, path }: { state: RoomState; busy: string |
   const thrower = players.find((p) => p.id === room.throwerPlayerId);
 
   return (
-    <Card>
+    <Card testId="bet-panel">
       <h2 className="mb-1 font-bold">Pariuri de chibiț</h2>
       <p className="mb-3 text-xs text-zinc-500">Fiecare pariu e de {room.stake} jetoane (miza mesei).</p>
       <div className="flex flex-col gap-3">
@@ -310,6 +316,7 @@ function BetPanel({ state, busy, run, path }: { state: RoomState; busy: string |
                 <Button
                   key={p.id}
                   variant="secondary"
+                  data-testid="bet-braila"
                   disabled={busy !== null}
                   onClick={() => void run(`braila:${p.id}`, path("bet"), { kind: "braila", targetPlayerId: p.id })}
                   className="truncate"
@@ -330,6 +337,7 @@ function BetPanel({ state, busy, run, path }: { state: RoomState; busy: string |
           ) : (
             <Button
               className="w-full"
+              data-testid="bet-san"
               disabled={busy !== null || !thrower}
               onClick={() => void run("san", path("bet"), { kind: "san" })}
             >
@@ -350,14 +358,14 @@ function BetList({ bets, nick, me }: { bets: BetItem[]; nick: Map<string, string
     void: ["anulat", "bg-zinc-100 text-zinc-500 dark:bg-zinc-900"],
   } as const;
   return (
-    <Card>
+    <Card testId="bet-list">
       <h2 className="mb-2 font-bold">Pariurile mâinii</h2>
       <ul className="flex flex-col gap-1 text-sm">
         {[...bets].reverse().map((b) => {
           const [label, cls] = badge[b.status];
           const target = nick.get(b.targetPlayerId ?? "") ?? "?";
           return (
-            <li key={b.id} className="flex items-center justify-between gap-2">
+            <li key={b.id} data-status={b.status} className="flex items-center justify-between gap-2">
               <span className="min-w-0 truncate">
                 <b>{nick.get(b.playerId) ?? "?"}</b>
                 {b.playerId === me.id && <span className="text-zinc-500"> (tu)</span>}:{" "}
@@ -376,7 +384,7 @@ function ThrowHistory({ throws, nick, rolling }: { throws: ThrowItem[]; nick: Ma
   const visible = rolling ? throws.slice(0, -1) : throws;
   if (visible.length === 0) return null;
   return (
-    <Card>
+    <Card testId="throw-history">
       <h2 className="mb-2 font-bold">Aruncările mâinii</h2>
       <ol className="flex flex-col gap-1.5">
         {[...visible].reverse().map((t) => (
@@ -442,7 +450,7 @@ function PeopleList({ state, token, refresh, receivedAt }: Props) {
   }
 
   return (
-    <Card>
+    <Card testId="people-list">
       <h2 className="mb-1 font-bold">
         În cameră <span className="text-sm font-normal text-zinc-500">· {spectators.length}/{MAX_SPECTATORS} chibiți</span>
       </h2>
