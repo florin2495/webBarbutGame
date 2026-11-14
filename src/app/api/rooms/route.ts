@@ -3,14 +3,15 @@ import { isValidStake, NICKNAME_MAX, STAKE_DEFAULT } from "@/lib/game";
 import { hashDeviceId, hashPassword, hashToken, newPlayerToken, newRoomCode } from "@/lib/server/crypto";
 import { db } from "@/lib/server/db";
 import { cleanText, fail, handle, isUniqueViolation, readJson } from "@/lib/server/http";
-import { cleanupExpiredRooms, T } from "@/lib/server/room";
+import { cleanupAbandonedRooms, cleanupExpiredRooms, T } from "@/lib/server/room";
 import type { RoomListItem } from "@/lib/types";
 
 // GET /api/rooms - public list of all live rooms (lobby and in-game, full ones too; expired rooms are cleaned up first).
+// Loading the list ("Intră în cameră") also sweeps abandoned rooms: no member seen and no activity for 120 s.
 export async function GET() {
   await connection(); // always request-time, never prerendered at build
   return handle(async () => {
-    await cleanupExpiredRooms();
+    await Promise.all([cleanupExpiredRooms(), cleanupAbandonedRooms()]);
     const { data, error } = await db()
       .from(T.rooms)
       .select(

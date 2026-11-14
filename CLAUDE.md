@@ -43,6 +43,13 @@ Rules for schema changes:
   service key from `.env.local`.
 - Never print or commit the keys in `.env.local`.
 
+## Abandoned rooms (120 s)
+- `GET /api/rooms` (the room list behind "Intră în cameră") first runs `cleanupAbandonedRooms` (`src/lib/server/room.ts`):
+  every room in ANY status (also `playing`) whose `last_activity_at` is older than `ROOM_ABANDONED_MS` (120 s, `game.ts`)
+  and with no member (seated player or spectator, both `barbut_players` rows) `last_seen_at` within 120 s is deleted
+  (players, throws, bets cascade). Open room pages keep both fresh (`/state` polls every 15 s, `last_seen_at` touched
+  every 10 s, `last_activity_at` every 20 s), so only rooms nobody has open disappear. The 10/30-minute expiry stays too.
+
 ## Testing
 - `npm test` (Vitest, pure rules in `src/lib/game.ts`, `kick.ts`, `reconnect.ts`), `npx tsc --noEmit`, `npx eslint src`, `npx next build`.
 - End-to-end: drive the real API with 2 players + spectators (create, join, spectate, start, throw, bet braila/san,
