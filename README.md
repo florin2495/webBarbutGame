@@ -27,7 +27,8 @@ Face parte din hub-ul [games.hailatat.icu](https://games.hailatat.icu).
 - Dacă un jucător pleacă (sau e scos) în timpul mâinii, mâna se anulează (pariurile deschise devin „anulat”)
   și cel mai vechi chibiț îi ia locul.
 - Host-ul poate schimba miza între mâini și poate scoate pe oricine din cameră.
-- Camerele fără mână în curs se închid după 10 minute în care nimeni nu le are deschise; cele cu mână în curs după 30 de minute.
+- Camerele pe care nimeni nu le mai are deschise se închid după 10 minute (și cele cu mână în curs).
+- Un jucător nevăzut de 301 s apare „deconectat” și își poate relua locul de pe alt dispozitiv.
 
 ## Arhitectură, pe scurt
 
@@ -35,7 +36,7 @@ Face parte din hub-ul [games.hailatat.icu](https://games.hailatat.icu).
 - Tabelele (`barbut_rooms`, `barbut_players`, `barbut_throws`, `barbut_bets`) au **RLS activat și nicio policy**, plus
   `revoke` pentru `anon`/`authenticated`. Stau în același proiect Supabase cu Bingo, cu prefixul `barbut_`.
 - Live: după fiecare modificare serverul trimite un semnal Realtime Broadcast pe `barbut-room:<uuid>`; clientul face
-  refetch la `/api/rooms/<cod>/state`. Polling la 15 s ca rezervă.
+  refetch la `/api/rooms/<cod>/state`. Polling la 60 s ca rezervă.
 - Concurență: aruncarea „revendică” slotul cu un `update ... where throw_count = n`, deci dublu-tap sau două taburi
   nu pot arunca de două ori. Pariurile verifică după insert că zarurile nu au fost aruncate între timp.
 

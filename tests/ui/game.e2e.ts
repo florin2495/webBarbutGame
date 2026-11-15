@@ -1,6 +1,6 @@
 // Scenario 1: two real browsers play live on the deployed site: create (password), join by link, start, a full round
 // thrown from the screens (whoever has the dice throws), every throw reaches the other screen through Realtime (well
-// under the 15 s polling fallback), the winner banner and balances, a second round started by the other side and
+// under the 60 s polling fallback), the winner banner and balances, a second round started by the other side and
 // followed live, leave. Runs on every project.
 import { expect, test } from "@playwright/test";
 import { createRoom, joinRoom, leaveAll, playRound, REALTIME_MS, withPlayers } from "./helpers";

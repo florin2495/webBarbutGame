@@ -19,7 +19,7 @@ interface SeatRow {
 // Takes a free seat when there is one (and no round is running), otherwise joins as a spectator.
 // Spectators may join at any time, even mid-round.
 // A nickname that is already in the room reclaims that member (same player id, new token) when the request
-// comes from the same device or the member has been disconnected for 45 s - also mid-round. The member keeps
+// comes from the same device or the member has been disconnected for 301 s (DISCONNECT_MS) - also mid-round. The member keeps
 // its seat (or stays a spectator), balance and bets; `spectate` is ignored for a reclaim.
 export async function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/join">) {
   return handle(async () => {

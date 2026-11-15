@@ -22,16 +22,16 @@ Migrations are run by hand in the Supabase SQL editor, so this list is the sourc
 | `supabase/schema.sql` (initial) | yes (2026-11-06, verified) | `barbut_rooms`, `barbut_players`, `barbut_throws`, `barbut_bets` |
 | `supabase/migrations/001_pending_kick.sql` | yes (2026-11-07, verified) | `barbut_players.kick_requested_at` (pending host kick, 10 s to press "Ignoră"); the code needs it, do not push before it ran |
 | `supabase/migrations/002_reconnect.sql` | yes (2026-11-07, verified: service role 200, anon 401) | `barbut_players.last_seen_at`, `device_hash` + index (rejoin the same seat). The code needs it, do not push before it ran |
-| `supabase/migrations/003_spectator_queue.sql` | **not applied yet** | `barbut_players.queued_at` ("Intră la runda următoare" queue, `/queue`). The code needs it, do not push before it ran |
+| `supabase/migrations/003_spectator_queue.sql` | yes, verified 2026-11-14 by effect: production E2E exercises its columns | `barbut_players.queued_at` ("Intră la runda următoare" queue, `/queue`). The code needs it |
 
 Rejoin the same seat (`src/lib/reconnect.ts`): every member request stamps `last_seen_at` (at most every 10 s);
 re-joining with a nickname already in the room reclaims that member (new token, same player id: seat, balance and
-bets kept, a spectator stays a spectator) from the same device (`device_hash`) or once it has been unseen for 45 s,
+bets kept, a spectator stays a spectator) from the same device (`device_hash`) or once it has been unseen for 301 s (`DISCONNECT_MS`),
 also mid-round. `/state` exposes only a derived `connected` flag; never select `token_hash` / `device_hash` into it.
 
 Production domain: https://games.hailatat.icu/barbut (basePath `/barbut`, proxied by the hub; Vercel project web-barbut-game.vercel.app)
 
-Leaderboard: at the end of a round `src/lib/server/leaderboard.ts` reports to the hub's `hub_leaderboard` / `hub_leaderboard_rounds` (hub migration `002_hub_leaderboard.sql`, best effort). Do not push before the hub migration ran.
+Leaderboard: at the end of a round (except rooms named `e2e-test-…`) `src/lib/server/leaderboard.ts` reports to the hub's `hub_leaderboard` / `hub_leaderboard_rounds` (hub migration `002_hub_leaderboard.sql`, best effort). Do not push before the hub migration ran.
 Spectators: max 16, queue via `POST /queue`, host reorder via `POST /reorder` (decides who throws first).
 
 Feedback (`POST /api/feedback`) writes to `hub_feedback` (owned by `florin2495/hailataticu-hub`, slug `barbut`); this game must not be deployed before that table exists.
@@ -43,12 +43,15 @@ Rules for schema changes:
   service key from `.env.local`.
 - Never print or commit the keys in `.env.local`.
 
-## Abandoned rooms (120 s)
+## Abandoned rooms (600 s)
 - `GET /api/rooms` (the room list behind "Intră în cameră") first runs `cleanupAbandonedRooms` (`src/lib/server/room.ts`):
-  every room in ANY status (also `playing`) whose `last_activity_at` is older than `ROOM_ABANDONED_MS` (120 s, `game.ts`)
-  and with no member (seated player or spectator, both `barbut_players` rows) `last_seen_at` within 120 s is deleted
-  (players, throws, bets cascade). Open room pages keep both fresh (`/state` polls every 15 s, `last_seen_at` touched
-  every 10 s, `last_activity_at` every 20 s), so only rooms nobody has open disappear. The 10/30-minute expiry stays too.
+  every room in ANY status (also `playing`) whose `last_activity_at` is older than `ROOM_ABANDONED_MS` (600 s, `game.ts`)
+  and with no member (seated player or spectator, both `barbut_players` rows) `last_seen_at` within 600 s is deleted
+  (players, throws, bets cascade). Open room pages keep both fresh (`/state` polls every 60 s, plus every action and
+  every Realtime refetch; `last_seen_at` touched at most every 10 s, `last_activity_at` at most every 20 s), so only
+  rooms nobody has open disappear. The 10/30-minute expiry stays too. Unit-tested with the DB mocked
+  (`src/lib/server/room.test.ts`).
+- A room that is gone answers 404 "Camera nu mai există (a fost închisă după inactivitate)." (no duration claimed).
 
 ## Testing (GitHub Actions, manual only)
 All checks run in GitHub Actions on the free tier (public repo, standard `ubuntu-latest` runners only, never billed /
@@ -58,7 +61,7 @@ Start one with `gh workflow run <file> --ref main`, then `gh run watch` (or the 
 | Workflow | Runs |
 | --- | --- |
 | `.github/workflows/check.yml` "Check code" | `npx next typegen` + `npx tsc --noEmit` (typegen first, so route types in `.next/types` are checked), `npx eslint src`, `npx next build`. Every step runs even if an earlier one failed |
-| `.github/workflows/unit-tests.yml` "Unit tests" | `npm test` (Vitest: `src/lib/game.test.ts`, `kick.test.ts`, `reconnect.test.ts`; pure rules, no DB) |
+| `.github/workflows/unit-tests.yml` "Unit tests" | `npm test` (Vitest, `vitest.config.ts` maps `@/`: `src/lib/game.test.ts`, `kick.test.ts`, `reconnect.test.ts` (pure rules), `src/lib/server/room.test.ts` (`cleanupAbandonedRooms`, DB mocked)) |
 | `.github/workflows/e2e.yml` "E2E" | `node scripts/e2e.mjs <base_url>` (input, default production `https://games.hailatat.icu/barbut`); one run at a time |
 | `.github/workflows/e2e-ui.yml` "E2E UI (Playwright)" | `npx playwright test` (`playwright.config.ts`, tests in `tests/ui/*.e2e.ts`) against `base_url` (`E2E_BASE_URL`, default production), on desktop Chromium and an emulated iPhone 13 (WebKit). Same concurrency group as "E2E". On failure the report (traces, screenshots, videos) is uploaded as the `playwright-report` artifact |
 
@@ -75,10 +78,10 @@ Start one with `gh workflow run <file> --ref main`, then `gh run watch` (or the 
   balances), sit / stand between rounds, spectator queue (toggle, positions) and host reorder (seat A throws first,
   queue order, 403 / 400 / 409 mid-round), kick (immediate between rounds, pending mid-round, "Ignoră", enforced
   after 12 s with the queued spectator taking the seat), host handover on leave, last one out closes the room.
-  Rooms are named `e2e-test-…` and deleted at the end; it never calls `/api/feedback`. Finished rounds are reported
-  to the hub leaderboard like any other round (players "Ana", "Bob", "Cris").
+  Rooms are named `e2e-test-…` and deleted at the end; it never calls `/api/feedback`. Rounds of `e2e-test-…` rooms
+  are never reported to the hub leaderboard (`isTestRoom` in `game.ts`, checked in `reportRound`).
 - What E2E UI does (`tests/ui/`, shared steps in `helpers.ts`; every change must reach the other screens within 5 s
-  without a reload, polling is 15 s, so this checks Realtime). Dice are random: the helpers read whose turn it is
+  without a reload, polling is 60 s, so this checks Realtime). Dice are random: the helpers read whose turn it is
   from the screen (`throw-button` visible on exactly one) and throw until the round ends, never a fixed result.
   - `game.e2e.ts` (both projects): two browser contexts (= two devices) create a password room, join by link, start,
     play a full round live (throw counter on the other screen), winner banner and +/- stake on both, round 2 started

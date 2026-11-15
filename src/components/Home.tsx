@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, ApiRequestError, clearSession, deviceId, listSessions, parseSession, readSessionRaw, saveSession } from "@/lib/client/api";
 import { PREF_NICKNAME, useStringPref, writePref } from "@/lib/client/prefs";
-import { MAX_SPECTATORS, NICKNAME_MAX, STAKE_DEFAULT, STAKE_OPTIONS } from "@/lib/game";
+import { NICKNAME_MAX, STAKE_DEFAULT, STAKE_OPTIONS } from "@/lib/game";
 import type { RoomListItem, RoomState } from "@/lib/types";
 import { Die } from "./Dice";
 import { FeedbackButton } from "./FeedbackButton";
@@ -176,7 +176,7 @@ export function Home() {
           {tab === "join" && (
             <Toggle
               label="Intru doar ca spectator (chibiț)"
-              hint={`Până la ${MAX_SPECTATORS} chibiți pe cameră. Poți intra și în timpul mâinii și poți paria Șan sau Brăila.`}
+              hint="Poți intra și în timpul mâinii și poți paria Șan sau Brăila."
               checked={spectate}
               onChange={setSpectate}
             />

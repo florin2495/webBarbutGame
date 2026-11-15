@@ -86,7 +86,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/th
       // Round over: report to the hub leaderboard (best effort, see lib/server/leaderboard.ts).
       const { data: rows } = await db().from(T.players).select("id, nickname").in("id", [player.id, other]);
       await reportRound(
-        room.code,
+        room,
         room.round,
         (rows ?? []).map((r) => ({ nickname: r.nickname as string, won: r.id === winner })),
       );

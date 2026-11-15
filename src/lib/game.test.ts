@@ -6,6 +6,7 @@ import {
   isPermutation,
   isRoomAbandoned,
   isRoomExpired,
+  isTestRoom,
   isValidStake,
   playerKey,
   ROOM_ABANDONED_MS,
@@ -90,15 +91,27 @@ describe("abandoned rooms (any status)", () => {
   const now = Date.parse("2026-11-14T12:00:00Z");
   const sec = (s: number) => new Date(now - s * 1000).toISOString();
   it(`is abandoned after ${ROOM_ABANDONED_MS / 1000} s with nobody seen`, () => {
-    expect(isRoomAbandoned(sec(121), [sec(300), sec(200)], now)).toBe(true);
-    expect(isRoomAbandoned(sec(121), [], now)).toBe(true);
-    expect(isRoomAbandoned(sec(121), [null], now)).toBe(true);
+    expect(ROOM_ABANDONED_MS).toBe(600_000);
+    expect(isRoomAbandoned(sec(601), [sec(900), sec(700)], now)).toBe(true);
+    expect(isRoomAbandoned(sec(601), [], now)).toBe(true);
+    expect(isRoomAbandoned(sec(601), [null], now)).toBe(true);
   });
   it("is kept while the last activity is recent", () => {
-    expect(isRoomAbandoned(sec(119), [], now)).toBe(false);
+    expect(isRoomAbandoned(sec(599), [], now)).toBe(false);
+    expect(isRoomAbandoned(sec(121), [], now)).toBe(false); // the old 120 s limit no longer applies
   });
   it("is kept while any player or spectator was seen recently", () => {
-    expect(isRoomAbandoned(sec(600), [sec(600), sec(30)], now)).toBe(false);
+    expect(isRoomAbandoned(sec(1200), [sec(1200), sec(300)], now)).toBe(false);
+  });
+});
+
+describe("isTestRoom (leaderboard skips e2e rooms)", () => {
+  it("matches only names starting with e2e-test-", () => {
+    expect(isTestRoom("e2e-test-abc")).toBe(true);
+    expect(isTestRoom("e2e-test-ui-xyz")).toBe(true);
+    expect(isTestRoom("Masa lui Ion")).toBe(false);
+    expect(isTestRoom("my e2e-test-room")).toBe(false);
+    expect(isTestRoom("E2E-TEST-x")).toBe(false);
   });
 });
 

@@ -1,5 +1,5 @@
 import "server-only";
-import { playerKey } from "@/lib/game";
+import { isTestRoom, playerKey } from "@/lib/game";
 import { db } from "./db";
 
 const GAME = "barbut";
@@ -8,14 +8,17 @@ const GAME = "barbut";
  * Reports a finished round to the hub's shared leaderboard (tables owned by florin2495/hailataticu-hub,
  * migration 002_hub_leaderboard.sql). Idempotent per (game, room_code, round_no) through hub_leaderboard_rounds:
  * the first insert claims the round, a repeat hits the primary key and is skipped.
+ * Rooms named "e2e-test-..." (scripts/e2e.mjs, tests/ui) are skipped.
  * +1 games for every player, +1 wins for the winner. Best effort: never throws, a missing table or a
  * network error must not break the throw.
  */
 export async function reportRound(
-  roomCode: string,
+  room: { code: string; name: string },
   roundNo: number,
   players: { nickname: string; won: boolean }[],
 ): Promise<void> {
+  if (isTestRoom(room.name)) return; // e2e rooms ("e2e-test-...") never reach the leaderboard
+  const roomCode = room.code;
   try {
     const { error: claimError } = await db()
       .from("hub_leaderboard_rounds")

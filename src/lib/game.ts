@@ -33,7 +33,7 @@ export function isRoomExpired(status: string, lastActivityAt: string | Date, now
  * A room in any status (also "playing") is abandoned once its last activity is older than this AND no
  * member (seated player or spectator) has been seen within it. Swept every time the room list loads (GET /api/rooms).
  */
-export const ROOM_ABANDONED_MS = 120_000;
+export const ROOM_ABANDONED_MS = 600_000;
 
 export function isRoomAbandoned(
   lastActivityAt: string | Date,
@@ -46,6 +46,11 @@ export function isRoomAbandoned(
     return !Number.isNaN(ms) && now - ms <= ROOM_ABANDONED_MS;
   };
   return !recent(lastActivityAt) && !membersLastSeen.some(recent);
+}
+
+/** Rooms created by the e2e tests (scripts/e2e.mjs, tests/ui) never reach the shared leaderboard. */
+export function isTestRoom(roomName: string): boolean {
+  return roomName.startsWith("e2e-test-");
 }
 
 export function isValidStake(n: unknown): n is number {
