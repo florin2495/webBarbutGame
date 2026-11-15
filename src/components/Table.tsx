@@ -452,7 +452,7 @@ function PeopleList({ state, token, refresh, receivedAt }: Props) {
   return (
     <Card testId="people-list">
       <h2 className="mb-1 font-bold">
-        În cameră <span className="text-sm font-normal text-zinc-500">· {spectators.length}/{MAX_SPECTATORS} chibiți</span>
+        În cameră <span className="text-sm font-normal text-zinc-500">· {spectators.length} {spectators.length === 1 ? "chibiț" : "chibiți"}</span>
       </h2>
       {canReorder && <p className="mb-1 text-xs text-zinc-500">Cu ↑↓ alegi cine aruncă primul (locul A) și ordinea cozii.</p>}
       <ul className="flex flex-col divide-y divide-zinc-200 dark:divide-zinc-800">

@@ -114,7 +114,7 @@ export function RoomList({
                     >
                       {playing ? "În joc" : "Lobby"}
                     </span>
-                    miză {r.stake} · {r.seated}/2 la masă · {r.spectators}/{MAX_SPECTATORS} chibiți · {r.seated + r.spectators}{" "}
+                    miză {r.stake} · {r.seated}/2 la masă · {r.spectators} {r.spectators === 1 ? "chibiț" : "chibiți"} · {r.seated + r.spectators}{" "}
                     {r.seated + r.spectators === 1 ? "jucător" : "jucători"}
                   </span>
                 </span>

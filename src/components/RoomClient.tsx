@@ -17,7 +17,7 @@ import {
 import { useKickSeconds } from "@/lib/client/countdown";
 import { PREF_NICKNAME, useStringPref, writePref } from "@/lib/client/prefs";
 import { realtimeClient } from "@/lib/client/realtime";
-import { MAX_SPECTATORS, NICKNAME_MAX } from "@/lib/game";
+import { NICKNAME_MAX } from "@/lib/game";
 import type { RoomState } from "@/lib/types";
 import { FeedbackButton } from "./FeedbackButton";
 import { Table } from "./Table";
@@ -337,7 +337,7 @@ function RoomHeader({ state }: { state: RoomState }) {
         </Link>
         <h1 className="truncate text-xl font-black">{room.name}</h1>
         <p className="text-xs text-zinc-500" data-testid="room-status">
-          miză {room.stake} · {spectators}/{MAX_SPECTATORS} chibiți · {statusLabel}
+          miză {room.stake} · {spectators} {spectators === 1 ? "chibiț" : "chibiți"} · {statusLabel}
         </p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1.5">

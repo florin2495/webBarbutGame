@@ -28,7 +28,7 @@ test("a late joiner watches, bets, queues and takes a free seat", async ({ brows
       await expect(sp.getByTestId("people-list")).toContainText(`${spectator.name} (tu)`);
       for (const p of [host, guest]) {
         await expect(p.page.getByTestId("people-list")).toContainText(spectator.name, { timeout: REALTIME_MS });
-        await expect(p.page.getByTestId("room-status")).toContainText("1/16 chibiți");
+        await expect(p.page.getByTestId("room-status")).toContainText("· 1 chibiț ·");
       }
     });
 
